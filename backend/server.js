@@ -1,8 +1,10 @@
 // server.js
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dotenv = require('dotenv');
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import Mood from './models/Mood.js';
+import moodRoutes from './routes/moodModule.js';
 
 dotenv.config();
 const app = express();
@@ -15,6 +17,17 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+app.use('/api/module/mood', moodRoutes);
+
+// // Simple schema
+// const UserSchema = new mongoose.Schema({
+//   name: String,
+//   email: String
+// });
+// const User = mongoose.model('User', UserSchema);
+
+// POST /api/mood - Add mood entry
 
 
 // MongoDB connection

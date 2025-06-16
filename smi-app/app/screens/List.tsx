@@ -10,8 +10,10 @@ interface RouterProps {
 const List = ({ navigation }: RouterProps) => {
   return (
     <View style={{ flex:1, justifyContent: 'center', alignItems: 'center' }}>
-        <Button onPress={() => navigation.navigate('Activity details')} title="Open Details" />
+        <Button onPress={() => navigation.navigate('Attendance details')} title="Open Details" />
+        <Button onPress={() => navigation.navigate('MoodTracker')} title="Track Mood" />  
         <Button onPress={() => FIREBASE_AUTH.signOut()} title="Logout" />    
+
     </View>
   )
 }

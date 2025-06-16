@@ -86,3 +86,5 @@ backend/firebaseServiceAccount.json
 firebaseServiceAccount.json
 firebaseAdmin.js
 config/google-services.json
+config/google-services.json
+

@@ -37,3 +37,14 @@ backend/firebaseServiceAccount.json
 firebaseServiceAccount.json
 firebaseAdmin.js
 config/google-services.json
+firebaseServiceAccount.json
+firebaseAdmin.js
+config/google-services.json
+
+
+
+# Firebase credentials
+backend/firebaseServiceAccount.json
+
+# Google Services
+backend/config/google-services.json
