@@ -30,3 +30,10 @@ build/
 # Misc
 *.swp
 *.swo
+
+# Firebase credentials
+backend/firebaseServiceAccount.json
+
+firebaseServiceAccount.json
+firebaseAdmin.js
+config/google-services.json

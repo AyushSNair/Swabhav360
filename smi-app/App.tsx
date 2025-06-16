@@ -14,7 +14,7 @@ function InsideLayout() {
   return (
     <InsideStack.Navigator>
       <InsideStack.Screen name="Activity List" component={List} />
-      <InsideStack.Screen name="Attendance details" component={Details} />
+      <InsideStack.Screen name="Activity details" component={Details} />
     </InsideStack.Navigator>
   );
 }
