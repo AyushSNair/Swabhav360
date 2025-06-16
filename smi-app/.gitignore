@@ -79,3 +79,5 @@ yarn-error.log
 # VS Code
 .vscode/
 google-services.json
+# Firebase credentials
+backend/firebaseServiceAccount.json

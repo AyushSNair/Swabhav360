@@ -6,6 +6,7 @@ import Details from './app/screens/Details';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { FIREBASE_AUTH } from './FirebaseConfig';
+import MoodTracker from './app/screens/MoodTracker';
 
 const Stack = createNativeStackNavigator();
 const InsideStack = createNativeStackNavigator();
@@ -15,6 +16,7 @@ function InsideLayout() {
     <InsideStack.Navigator>
       <InsideStack.Screen name="Activity List" component={List} />
       <InsideStack.Screen name="Attendance details" component={Details} />
+      <InsideStack.Screen name="MoodTracker" component={MoodTracker} />
     </InsideStack.Navigator>
   );
 }
