@@ -81,3 +81,8 @@ yarn-error.log
 google-services.json
 # Firebase credentials
 backend/firebaseServiceAccount.json
+
+firebaseServiceAccount.json
+firebaseAdmin.js
+config/google-services.json
+
