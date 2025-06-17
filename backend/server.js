@@ -1,17 +1,17 @@
-// server.js
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import Mood from './models/Mood.js';
 import moodRoutes from './routes/moodModule.js';
+import DailyActivity from './models/DailyActivity.js';
 
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({
-  origin: ['http://localhost:8081', 'http://192.168.7.8:8081', 'http://localhost:3000'],
+  origin: ['http://localhost:8081', 'http://192.168.7.10:8081', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -20,48 +20,38 @@ app.use(express.json());
 
 app.use('/api/module/mood', moodRoutes);
 
-// // Simple schema
-// const UserSchema = new mongoose.Schema({
-//   name: String,
-//   email: String
-// });
-// const User = mongoose.model('User', UserSchema);
-
-// POST /api/mood - Add mood entry
-
-
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('✅ MongoDB connected');
-    
-    // Drop old index and create new compound index
+
+    // Drop old index if it exists (ignore if not found)
     try {
-      const DailyActivity = require('./models/DailyActivity');
       await DailyActivity.collection.dropIndex('date_1')
         .catch(err => {
-          if (err.code !== 26) { // Ignore if index doesn't exist
-            console.error('Error dropping old index:', err);
+          if (err.code !== 27) { // IndexNotFound
+            console.error('❌ Error dropping old index:', err);
           }
         });
-      
-      // Create new compound index
+
+      // Create compound index (if not already exists)
       await DailyActivity.collection.createIndex(
         { uid: 1, date: 1 },
-        { unique: true, name: 'uid_date_unique' }
-      );
-      console.log('✅ Indexes updated successfully');
+        { unique: true }
+      ).catch(err => {
+        if (err.code === 85) {
+          console.warn('⚠️ Compound index already exists with a different name.');
+        } else {
+          throw err;
+        }
+      });
+
+      console.log('✅ Index setup complete');
     } catch (err) {
       console.error('❌ Error managing indexes:', err);
     }
   })
   .catch(err => console.log('❌ MongoDB connection error:', err));
-
-// Simple schema
-const User = require('./models/User');
-const DailyActivity = require('./models/DailyActivity');
-
-
 
 // Test route
 app.post('/test', async (req, res) => {
@@ -77,7 +67,7 @@ app.post('/test', async (req, res) => {
   }
 });
 
-// Daily Activity routes
+// Daily Activity Routes
 app.post('/daily-activity', async (req, res) => {
   try {
     const { waterIntake, meals, sleepTime, wakeTime, date, uid } = req.body;
@@ -87,7 +77,6 @@ app.post('/daily-activity', async (req, res) => {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    // Try to find existing activity for this user and date
     let dailyActivity = await DailyActivity.findOne({ uid, date });
 
     if (dailyActivity) {
@@ -114,10 +103,7 @@ app.post('/daily-activity', async (req, res) => {
       });
     }
 
-    console.log('Activity object:', dailyActivity);
     const savedActivity = await dailyActivity.save();
-    console.log('Saved activity:', savedActivity);
-    
     res.status(201).json({ 
       message: dailyActivity.isNew ? 'Daily activity created!' : 'Daily activity updated!', 
       dailyActivity: savedActivity 
@@ -131,11 +117,10 @@ app.post('/daily-activity', async (req, res) => {
   }
 });
 
-// GET route to fetch daily activities
 app.get('/daily-activity', async (req, res) => {
   try {
     const { uid } = req.query;
-    
+
     if (!uid) {
       return res.status(400).json({ error: 'User ID is required' });
     }

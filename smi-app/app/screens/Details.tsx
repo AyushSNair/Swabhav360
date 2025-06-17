@@ -86,7 +86,7 @@ const EnhancedActivityTracker: React.FC = () => {
         throw new Error('User not authenticated');
       }
 
-      const response = await fetch(`http://192.168.7.8:3000/daily-activity?uid=${user.uid}`);
+      const response = await fetch(`http://192.168.7.10:3000/daily-activity?uid=${user.uid}`);
       if (!response.ok) {
         throw new Error('Failed to fetch activities');
       }
@@ -233,7 +233,7 @@ const EnhancedActivityTracker: React.FC = () => {
 
       console.log('Sending data:', dataToSend);
 
-      const response = await fetch('http://192.168.7.8:3000/daily-activity', {
+      const response = await fetch('http://192.168.7.10:3000/daily-activity', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
