@@ -1,7 +1,21 @@
-import { View, TextInput, StyleSheet, ActivityIndicator, Button, KeyboardAvoidingView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Image,
+  Dimensions,
+  ScrollView,
+} from 'react-native';
 import React, { useState } from 'react';
 import { FIREBASE_AUTH } from '../../FirebaseConfig';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+
+const { height, width } = Dimensions.get('window');
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -15,8 +29,7 @@ const Login = () => {
       const response = await signInWithEmailAndPassword(auth, email, password);
       console.log(response);
     } catch (error: any) {
-      console.log(error);
-      alert('Sign in failed: ' + error.message);
+      alert('Login failed: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -27,44 +40,62 @@ const Login = () => {
     try {
       const response = await createUserWithEmailAndPassword(auth, email, password);
       console.log(response);
-      alert('Check your emails!');
+      alert('Signup successful!');
     } catch (error: any) {
-      console.log(error);
-      alert('Sign up failed: ' + error.message);
+      alert('Signup failed: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <KeyboardAvoidingView behavior='padding'>
-        <TextInput
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <Image
+          source={require('../../assets/smi-logo.png')} // 📌 Use the full logo image
+          style={styles.logo}
+          resizeMode="contain"
+        />
+
+        <View style={styles.formContainer}>
+          <Text style={styles.loginTitle}>Login</Text>
+          <Text style={styles.subText}>Sign in to continue.</Text>
+
+          <TextInput
             value={email}
-            style={styles.input}
+            onChangeText={setEmail}
             placeholder="Email"
             autoCapitalize="none"
-            onChangeText={(text) => setEmail(text)}
-        />
-      <TextInput
-        secureTextEntry
-        value={password}
-        style={styles.input}
-        placeholder="Password"
-        autoCapitalize="none"
-        onChangeText={(text) => setPassword(text)}
-      />
+            style={styles.input}
+          />
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Password"
+            secureTextEntry
+            style={styles.input}
+          />
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000f" />
-      ) : (
-        <>
-          <Button title="Login" onPress={signIn} />
-          <Button title="Create account" onPress={signUp} />
-        </>
-      )}
-      </KeyboardAvoidingView>
-    </View>
+          {loading ? (
+            <ActivityIndicator size="large" color="#000" />
+          ) : (
+            <TouchableOpacity style={styles.loginButton} onPress={signIn}>
+              <Text style={styles.loginButtonText}>Log in</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity>
+            <Text style={styles.link}>Forgot Password?</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={signUp}>
+            <Text style={styles.link}>Signup!</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -72,16 +103,54 @@ export default Login;
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 20,
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  logo: {
+    width: '100%',
+    height: height * 0.35,
+    marginTop: 30,
+  },
+  formContainer: {
+    backgroundColor: '#fff',
+    padding: 24,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    alignItems: 'center',
+    marginTop: -20,
+  },
+  loginTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  subText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
   },
   input: {
-    marginVertical: 4,
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 4,
-    padding: 10,
-    backgroundColor: '#fff',
+    width: '100%',
+    backgroundColor: '#E5F0FF',
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 16,
+    fontSize: 16,
+  },
+  loginButton: {
+    backgroundColor: '#000',
+    padding: 14,
+    width: '100%',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  link: {
+    marginTop: 12,
+    color: '#888',
   },
 });
