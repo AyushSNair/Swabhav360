@@ -18,7 +18,7 @@ const verifyFirebaseToken = async (req, res, next) => {
   }
 };
 
-//GET mood
+// GET mood history
 router.get('/', verifyFirebaseToken, async (req, res) => {
   try {
     const moods = await Mood.find({ uid: req.user.uid }).sort({ date: -1 });
@@ -28,14 +28,19 @@ router.get('/', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-
-// POST mood
+// POST mood (new entry)
 router.post('/', verifyFirebaseToken, async (req, res) => {
-  const { mood, note } = req.body;
+  const { mood, note, intensity } = req.body;
   const uid = req.user.uid;
 
   try {
-    const newEntry = new Mood({ uid, mood, note });
+    const newEntry = new Mood({
+      uid,
+      mood,
+      note,
+      intensity,
+      date: new Date().toISOString().split('T')[0], // just the date part
+    });
     await newEntry.save();
     res.status(201).json(newEntry);
   } catch (err) {
@@ -43,11 +48,42 @@ router.post('/', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-// GET moods for logged-in user
-router.get('/', verifyFirebaseToken, async (req, res) => {
+// GET mood for a specific date
+router.get('/:date', verifyFirebaseToken, async (req, res) => {
+  const { date } = req.params;
+  const uid = req.user.uid;
+
   try {
-    const moods = await Mood.find({ uid: req.user.uid }).sort({ date: -1 });
-    res.json(moods);
+    const moodEntry = await Mood.findOne({ uid, date });
+    if (!moodEntry) {
+      return res.status(404).json({ message: 'No mood data found for this date' });
+    }
+    res.json(moodEntry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ✅ PUT mood (update today’s entry)
+router.put('/', verifyFirebaseToken, async (req, res) => {
+  const { mood, note, intensity, date } = req.body;
+  const uid = req.user.uid;
+
+  if (!date) return res.status(400).json({ error: 'Date is required to update mood' });
+
+  try {
+    const updated = await Mood.findOneAndUpdate(
+      { uid, date },
+      { mood, note, intensity },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ error: 'Mood entry not found for the specified date' });
+    }
+
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
