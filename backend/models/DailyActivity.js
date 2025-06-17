@@ -1,4 +1,4 @@
-import mongoose from 'mongoose'; 
+import mongoose from 'mongoose';
 
 const DailyActivitySchema = new mongoose.Schema({
   uid: {
@@ -69,4 +69,4 @@ const DailyActivitySchema = new mongoose.Schema({
 });
 
 // module.exports = mongoose.model('DailyActivity', DailyActivitySchema);
-export default mongoose.model("DailyActivity", DailyActivitySchema);
+export default mongoose.model('DailyActivity', DailyActivitySchema);

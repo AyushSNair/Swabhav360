@@ -86,7 +86,7 @@ app.post('/daily-activity', async (req, res) => {
       dailyActivity.sleep = {
         bedtime: sleepTime,
         wakeup: wakeTime,
-        duration: dailyActivity.sleep?.duration || 0
+        duration: req.body.sleepDuration || dailyActivity.sleep?.duration || 0
       };
     } else {
       // Create new activity
@@ -97,7 +97,7 @@ app.post('/daily-activity', async (req, res) => {
         sleep: {
           bedtime: sleepTime,
           wakeup: wakeTime,
-          duration: 0
+          duration: req.body.sleepDuration || 0
         },
         date,
       });
