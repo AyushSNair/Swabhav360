@@ -2,7 +2,7 @@
 By SMI – Kerala Government Recognized NGO
 
 A first-of-its-kind sports-driven mobile application built to empower children from marginalized communities by holistically tracking their development. Created by SMI, a Kerala-based NGO featured in Times of India and honored at India’s first and largest International Sports Summit, this tool is used in Red Light Areas, Government Homes, Juvenile Prisons, and the Transgender Community to build character, discipline, and dignity through sports.
-
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 🌟 About SMI
 "We don’t just coach football. We build futures."
 SMI is a Kerala Government recognized sports NGO that uses the power of sports to:
@@ -15,9 +15,11 @@ Support children who had no prior exposure to structured sports — many of whom
 
 Operate in highly vulnerable communities, creating safe and growth-focused environments for children
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 📱 Project Overview
 The Child Progress & Wellness Tracker is a cross-platform mobile solution to document and guide the physical, emotional, nutritional, and behavioral development of children participating in SMI's programs.
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 🚀 Tech Stack
 Frontend: React Native (Cross-platform: Android & iOS)
 
@@ -33,6 +35,7 @@ Voice-to-Text: Google Speech-to-Text / Azure Speech Services
 
 Data Visualization: Chart.js / D3.js
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 📦 Core Modules
 1. 🗓️ Daily Activity Tracker
 Water, meal, sleep logging
@@ -76,6 +79,7 @@ Donation and budget tracking
 
 Financial reports (monthly/quarterly)
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 🔑 Key Features
 Role-based access: Admin, Counselor, Volunteer, Donor
 
@@ -89,6 +93,7 @@ PDF/Excel reports export for easy sharing
 
 Counselor dashboards with actionable insights
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 📈 Impact at a Glance
 🏅 Children with zero sports background now play at the National Level
 
@@ -98,5 +103,6 @@ Counselor dashboards with actionable insights
 
 🌍 Pioneering Gender-Based Violence education through sports, enabling boys to respect and value women early in life
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 📄 License
 This project is licensed under the MIT License.
