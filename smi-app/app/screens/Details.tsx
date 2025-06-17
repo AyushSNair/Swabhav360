@@ -42,6 +42,27 @@ interface WeeklyDataPoint {
   sleep: number;
 }
 
+interface MonthlyStats {
+  waterGoalAchievement: number;
+  currentStreak: number;
+  averageSleep: number;
+  bestDay: string;
+}
+
+interface DailyActivity {
+  _id: string;
+  uid: string;
+  date: string;
+  waterIntake: number;
+  meals: any[];
+  sleep: {
+    duration: number;
+  };
+  weeklyStats: any;
+  activity: any[];
+  __v: number;
+}
+
 // Icon Components (simplified for React Native)
 const CalendarIcon = () => <Text style={{ fontSize: 16 }}>📅</Text>;
 const TrendingUpIcon = () => <Text style={{ fontSize: 16 }}>📈</Text>;
@@ -59,6 +80,15 @@ const EnhancedActivityTracker: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('today');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const auth = FIREBASE_AUTH;
+  const [bestDay, setBestDay] = useState<string>('-');
+  const [currentStreak, setCurrentStreak] = useState<number>(0);
+  const [averageSleep, setAverageSleep] = useState<number>(0);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats>({
+    waterGoalAchievement: 0,
+    currentStreak: 0,
+    averageSleep: 0,
+    bestDay: '-'
+  });
   
   const [todayData, setTodayData] = useState<TodayData>({
     water: 0,
@@ -77,7 +107,63 @@ const EnhancedActivityTracker: React.FC = () => {
     { day: 'Sun', water: 0, meals: 0, sleep: 0 }
   ]);
 
-  // Fetch daily activities
+  const generateMonthlyStats = (data: DailyActivity[]): MonthlyStats => {
+    try {
+      if (!data || data.length === 0) {
+        return {
+          waterGoalAchievement: 0,
+          currentStreak: 0,
+          averageSleep: 0,
+          bestDay: '-'
+        };
+      }
+
+      // Calculate water goal achievement
+      const daysWithGoalMet = data.filter(day => day.waterIntake >= 8).length;
+      const waterGoalAchievement = Math.round((daysWithGoalMet / data.length) * 100);
+
+      // Calculate current streak
+      let streak = 0;
+      const sortedData = [...data].sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      
+      for (const day of sortedData) {
+        if (day.waterIntake >= 8) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+
+      // Calculate average sleep
+      const totalSleep = data.reduce((sum, day) => sum + (day.sleep?.duration || 0), 0);
+      const averageSleep = totalSleep / data.length;
+
+      // Find best day
+      const bestDayData = data.reduce((max, day) => 
+        day.waterIntake > max.waterIntake ? day : max
+      , data[0]);
+      const bestDay = bestDayData ? new Date(bestDayData.date).toLocaleDateString() : '-';
+
+      return {
+        waterGoalAchievement,
+        currentStreak: streak,
+        averageSleep,
+        bestDay
+      };
+    } catch (error) {
+      console.error('Error generating monthly stats:', error);
+      return {
+        waterGoalAchievement: 0,
+        currentStreak: 0,
+        averageSleep: 0,
+        bestDay: '-'
+      };
+    }
+  };
+
+  // Update fetchDailyActivities to calculate monthly stats
   const fetchDailyActivities = async () => {
     try {
       setIsLoading(true);
@@ -86,14 +172,14 @@ const EnhancedActivityTracker: React.FC = () => {
         throw new Error('User not authenticated');
       }
 
-      const response = await fetch(`http://192.168.7.10:3000/daily-activity?uid=${user.uid}`);
+      const response = await fetch(`http://192.168.7.14:3000/daily-activity?uid=${user.uid}`);
       if (!response.ok) {
         throw new Error('Failed to fetch activities');
       }
       const activities = await response.json();
       console.log('Fetched activities:', activities);
       
-      // Update weekly data with fetched activities
+      // Update weekly data
       if (activities && activities.length > 0) {
         const weeklyDataFromDB = activities.slice(0, 7).map((activity: any) => ({
           day: new Date(activity.date).toLocaleDateString('en-US', { weekday: 'short' }),
@@ -102,6 +188,10 @@ const EnhancedActivityTracker: React.FC = () => {
           sleep: activity.sleep?.duration || 0
         }));
         setWeeklyData(weeklyDataFromDB);
+
+        // Calculate and set monthly stats
+        const stats = generateMonthlyStats(activities);
+        setMonthlyStats(stats);
       }
     } catch (error) {
       console.error('Error fetching activities:', error);
@@ -228,12 +318,13 @@ const EnhancedActivityTracker: React.FC = () => {
         meals: todayData.meals,
         sleepTime: todayData.sleep.bedtime,
         wakeTime: todayData.sleep.wakeup,
+        sleepDuration: todayData.sleep.duration,
         date: selectedDate.toISOString().split('T')[0],
       };
 
       console.log('Sending data:', dataToSend);
 
-      const response = await fetch('http://192.168.7.10:3000/daily-activity', {
+      const response = await fetch('http://192.168.7.14:3000/daily-activity', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -549,6 +640,28 @@ const EnhancedActivityTracker: React.FC = () => {
       fontSize: 12,
       textAlign: 'center' as const,
     } as TextStyle,
+    monthlyStatsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      gap: 12,
+    } as ViewStyle,
+    monthlyStatCard: {
+      width: '48%',
+      padding: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginBottom: 12,
+    } as ViewStyle,
+    monthlyStatNumber: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginVertical: 8,
+    } as TextStyle,
+    monthlyStatLabel: {
+      fontSize: 12,
+      textAlign: 'center',
+    } as TextStyle,
   };
 
   return (
@@ -847,62 +960,62 @@ const EnhancedActivityTracker: React.FC = () => {
           </View>
         )}
 
-        {/* Month View */}
+        {/* Monthly View */}
         {activeTab === 'month' && (
           <View style={styles.card}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
               <TrendingUpIcon />
               <Text style={[styles.cardTitle, { marginLeft: 8, marginBottom: 0 }]}>Monthly Progress</Text>
             </View>
-            
-            <View style={styles.chartContainer}>
-              <Text style={styles.chartTitle}>Water Goal Achievement</Text>
-              <VictoryPie
-                data={progressPieData}
-                width={screenWidth - 80}
-                height={250}
-                colorScale={['#3B82F6', '#E5E7EB']}
-                labelRadius={({ datum, innerRadius }: any) => (innerRadius || 0) + 40}
-                labelComponent={<VictoryLabel style={{ fontSize: 14, fill: '#374151' }} />}
-                animate={{
-                  duration: 1000
-                }}
-              />
-            </View>
-            
-            <View style={{ marginTop: 24 }}>
-              <View style={[styles.weeklyStatCard, { backgroundColor: '#EFF6FF', marginBottom: 12 }]}>
-                <Text style={[styles.weeklyStatNumber, { color: '#2563EB' }]}>-</Text>
-                <Text style={[styles.weeklyStatLabel, { color: '#1D4ED8' }]}>Best Day</Text>
-                <Text style={{ fontSize: 12, color: '#1D4ED8', marginTop: 4 }}>
-                  No data available
+
+            <View style={styles.monthlyStatsContainer}>
+              {/* Water Goal Achievement */}
+              <View style={[styles.monthlyStatCard, { backgroundColor: '#EFF6FF' }]}>
+                <Text style={{ fontSize: 24 }}>💧</Text>
+                <Text style={[styles.monthlyStatNumber, { color: '#2563EB' }]}>
+                  {monthlyStats.waterGoalAchievement}%
                 </Text>
+                <Text style={[styles.monthlyStatLabel, { color: '#1D4ED8' }]}>Water Goal Achievement</Text>
               </View>
-              
-              <View style={[styles.weeklyStatCard, { backgroundColor: '#ECFDF5', marginBottom: 12 }]}>
-                <Text style={[styles.weeklyStatNumber, { color: '#10B981' }]}>0</Text>
-                <Text style={[styles.weeklyStatLabel, { color: '#059669' }]}>Current Streak</Text>
-                <Text style={{ fontSize: 12, color: '#059669', marginTop: 4 }}>
-                  No streak data
+
+              {/* Current Streak */}
+              <View style={[styles.monthlyStatCard, { backgroundColor: '#FEF3C7' }]}>
+                <Text style={{ fontSize: 24 }}>🔥</Text>
+                <Text style={[styles.monthlyStatNumber, { color: '#D97706' }]}>
+                  {monthlyStats.currentStreak}
                 </Text>
+                <Text style={[styles.monthlyStatLabel, { color: '#B45309' }]}>Current Streak</Text>
               </View>
-              
-              <View style={[styles.weeklyStatCard, { backgroundColor: '#F3E8FF' }]}>
-                <Text style={[styles.weeklyStatNumber, { color: '#7C3AED' }]}>0h</Text>
-                <Text style={[styles.weeklyStatLabel, { color: '#6D28D9' }]}>Avg Sleep This Month</Text>
+
+              {/* Average Sleep */}
+              <View style={[styles.monthlyStatCard, { backgroundColor: '#F3E8FF' }]}>
+                <Text style={{ fontSize: 24 }}>🌙</Text>
+                <Text style={[styles.monthlyStatNumber, { color: '#7C3AED' }]}>
+                  {monthlyStats.averageSleep > 0
+                    ? `${Math.floor(monthlyStats.averageSleep)}h ${Math.round((monthlyStats.averageSleep % 1) * 60)}m`
+                    : '0h'}
+                </Text>
+                <Text style={[styles.monthlyStatLabel, { color: '#6D28D9' }]}>Avg Sleep</Text>
+              </View>
+
+              {/* Best Day */}
+              <View style={[styles.monthlyStatCard, { backgroundColor: '#ECFDF5' }]}>
+                <Text style={{ fontSize: 24 }}>🏆</Text>
+                <Text style={[styles.monthlyStatNumber, { color: '#10B981' }]}>
+                  {monthlyStats.bestDay}
+                </Text>
+                <Text style={[styles.monthlyStatLabel, { color: '#059669' }]}>Best Day</Text>
               </View>
             </View>
           </View>
         )}
       </ScrollView>
-
-      {/* Save Button */}
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+      <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
         <ActivityIcon />
         <Text style={styles.saveButtonText}>Save Activity</Text>
       </TouchableOpacity>
     </View>
   );
-};
+}
 
 export default EnhancedActivityTracker;
