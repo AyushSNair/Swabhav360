@@ -10,6 +10,8 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Toast from 'react-native-toast-message';
@@ -56,6 +58,12 @@ const MoodTracker = () => {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [moodHistory, setMoodHistory] = useState<Record<string, MoodType>>({});
+  const [positiveBehaviors, setPositiveBehaviors] = useState<{ label: string; note?: string }[]>([]);
+  const [progressReport, setProgressReport] = useState('');
+  const scaleAnim = new Animated.Value(1);
+  const fadeAnim = new Animated.Value(1);
+  const [newBehaviorLabel, setNewBehaviorLabel] = useState('');
+  const [newBehaviorNote, setNewBehaviorNote] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -131,6 +139,8 @@ const MoodTracker = () => {
           note: notes,
           intensity,
           date: today,
+          positiveBehaviors,
+          progressReport,
         }),
       });
 
@@ -156,49 +166,217 @@ const MoodTracker = () => {
     setSelectedMood(null);
     setNotes('');
     setIntensity(3);
+    setPositiveBehaviors([]);
+    setProgressReport('');
+  };
+
+  const animateMoodSelection = (mood: MoodType) => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 1.2,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    setSelectedMood(mood);
   };
 
   const moodButtons = useMemo(() => {
-    return Object.entries(MOODS).map(([key, { emoji, label }]) => (
+    return Object.entries(MOODS).map(([key, { emoji, label, color }]) => (
       <TouchableOpacity
         key={key}
-        onPress={() => setSelectedMood(key as MoodType)}
+        onPress={() => animateMoodSelection(key as MoodType)}
         style={[
           styles.moodButton,
           selectedMood === key && styles.selectedMood,
+          { borderColor: color },
         ]}
         accessibilityLabel={`Mood: ${label}`}
         accessibilityRole="button"
       >
         <Text style={styles.moodEmoji}>{emoji}</Text>
-        <Text style={{ textAlign: 'center', fontSize: 12 }}>{label}</Text>
+        <Text style={[styles.moodLabel, { color: selectedMood === key ? color : '#666' }]}>{label}</Text>
       </TouchableOpacity>
     ));
   }, [selectedMood]);
 
+  const addPositiveBehavior = () => {
+    if (!newBehaviorLabel.trim()) return;
+    setPositiveBehaviors(prev => [...prev, { label: newBehaviorLabel.trim(), note: newBehaviorNote.trim() }]);
+    setNewBehaviorLabel('');
+    setNewBehaviorNote('');
+  };
+
+  const removePositiveBehavior = (index: number) => {
+    setPositiveBehaviors(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F6FF' }}>
-      {/* Header */}
+    <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
         <View>
           <Text style={styles.headerDate}>{formattedDate}</Text>
-          <Text style={styles.headerGreeting}>Hey Jane</Text>
+          <Text style={styles.headerGreeting}>How are you feeling today?</Text>
         </View>
-        <View style={styles.profilePic} />
+        <TouchableOpacity style={styles.profilePic}>
+          <Ionicons name="person-circle" size={40} color="#6C4AB6" />
+        </TouchableOpacity>
       </View>
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-          {/* Calendar Card */}
-          <View style={styles.cardYellow}>
-            {!moodHistory[today] && (
-              <TouchableOpacity onPress={() => {}}>
-                <Text style={styles.noEntryText}>No entries found for today.\nClick here to add your mood for today!</Text>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer} 
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Mood Selector */}
+          <View style={styles.moodSelectorContainer}>
+            <Animated.View 
+              style={[
+                styles.moodArc,
+                { 
+                  borderColor: selectedMood ? MOODS[selectedMood].color : '#ccc',
+                  transform: [{ scale: scaleAnim }]
+                }
+              ]}
+            >
+              <Text style={styles.moodEmojiBig}>
+                {selectedMood ? MOODS[selectedMood].emoji : '🙂'}
+              </Text>
+            </Animated.View>
+            <Text style={styles.moodLabelBig}>
+              {selectedMood ? MOODS[selectedMood].label : 'Select your mood'}
+            </Text>
+            <View style={styles.moodButtonRow}>
+              {Object.entries(MOODS).map(([key, { emoji, label, color }]) => (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => animateMoodSelection(key as MoodType)}
+                  style={[
+                    styles.moodButton,
+                    selectedMood === key && styles.selectedMood,
+                    { borderColor: color }
+                  ]}
+                >
+                  <Text style={styles.moodEmoji}>{emoji}</Text>
+                  <Text style={[styles.moodLabel, { color: selectedMood === key ? color : '#666' }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Intensity Section */}
+          <View style={styles.intensitySection}>
+            <Text style={styles.intensityLabel}>How intense is this feeling?</Text>
+            <View style={styles.intensityRow}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[
+                    styles.intensityCircle,
+                    intensity === i && styles.selectedIntensity,
+                    { 
+                      backgroundColor: intensity === i && selectedMood 
+                        ? MOODS[selectedMood].color + '20' 
+                        : 'transparent' 
+                    }
+                  ]}
+                  onPress={() => setIntensity(i)}
+                >
+                  <Text style={[
+                    styles.intensityText,
+                    { 
+                      color: intensity === i && selectedMood 
+                        ? MOODS[selectedMood].color 
+                        : '#666' 
+                    }
+                  ]}>
+                    {i}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Gratitude Section */}
+          <View style={styles.gratitudeSection}>
+            <Text style={styles.gratefulLabel}>What are you grateful for today?</Text>
+            <TextInput
+              placeholder="I am grateful for..."
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              style={styles.gratefulInput}
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          {/* Positive Behaviors Section */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Positive Behaviors</Text>
+            <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginRight: 8 }]}
+                placeholder="Behavior (e.g., Helped a friend)"
+                value={newBehaviorLabel}
+                onChangeText={setNewBehaviorLabel}
+                placeholderTextColor="#9CA3AF"
+              />
+              <TouchableOpacity style={styles.addButton} onPress={addPositiveBehavior}>
+                <Text style={styles.addButtonText}>Add</Text>
               </TouchableOpacity>
+            </View>
+            <TextInput
+              style={[styles.input, { marginBottom: 8 }]}
+              placeholder="Optional note"
+              value={newBehaviorNote}
+              onChangeText={setNewBehaviorNote}
+              placeholderTextColor="#9CA3AF"
+            />
+            {positiveBehaviors.length > 0 && (
+              <View style={{ marginTop: 8 }}>
+                {positiveBehaviors.map((b, i) => (
+                  <View key={i} style={styles.behaviorItem}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.behaviorLabel}>{b.label}</Text>
+                      {b.note ? <Text style={styles.behaviorNote}>{b.note}</Text> : null}
+                    </View>
+                    <TouchableOpacity onPress={() => removePositiveBehavior(i)}>
+                      <Ionicons name="close-circle" size={22} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
             )}
+          </View>
+
+          {/* Progress Report Section */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Progress Report for Counselor</Text>
+            <TextInput
+              style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+              placeholder="Write your progress report here..."
+              value={progressReport}
+              onChangeText={setProgressReport}
+              multiline
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+
+          {/* Calendar Card */}
+          <View style={styles.calendarCard}>
+            <Text style={styles.calendarTitle}>Your Mood History</Text>
             <Calendar
               markedDates={Object.fromEntries(
                 Object.entries(moodHistory).map(([date, mood]) => [
@@ -207,10 +385,12 @@ const MoodTracker = () => {
                     customStyles: {
                       container: {
                         backgroundColor: MOODS[mood].color,
-                        borderRadius: 5,
+                        borderRadius: 8,
+                        elevation: 2,
                       },
                       text: {
                         color: 'white',
+                        fontWeight: '600',
                       },
                     },
                   },
@@ -218,58 +398,52 @@ const MoodTracker = () => {
               )}
               markingType="custom"
               style={styles.calendarStyle}
-            />
-            <Text style={styles.gratefulLabel}>What are you grateful for today?</Text>
-            <TextInput
-              placeholder="I am grateful for..."
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              style={styles.gratefulInput}
+              theme={{
+                todayTextColor: '#6C4AB6',
+                selectedDayBackgroundColor: '#6C4AB6',
+                arrowColor: '#6C4AB6',
+              }}
             />
           </View>
-          {/* Mood Selector */}
-          <View style={styles.moodSelectorContainer}>
-            <View style={[styles.moodArc, { borderColor: moodArcColor }]}> 
-              <Text style={styles.moodEmojiBig}>{selectedMood ? MOODS[selectedMood].emoji : '🙂'}</Text>
-            </View>
-            <Text style={styles.moodLabelBig}>{selectedMood ? MOODS[selectedMood].label : 'How are you feeling right now?'}</Text>
-            <View style={styles.moodButtonRow}>{moodButtons}</View>
-          </View>
-          {/* Intensity */}
-          <View style={styles.intensitySection}>
-            <Text style={styles.label}>Intensity (1–5):</Text>
-            <View style={styles.intensityRow}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[
-                    styles.intensityCircle,
-                    intensity === i && styles.selectedIntensity,
-                  ]}
-                  onPress={() => setIntensity(i)}
-                >
-                  <Text>{i}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+
           {/* Submit Button */}
-          <TouchableOpacity style={styles.submitButton} onPress={submitMood}>
+          <TouchableOpacity 
+            style={[
+              styles.submitButton,
+              { 
+                backgroundColor: selectedMood 
+                  ? MOODS[selectedMood].color 
+                  : '#ccc' 
+              }
+            ]} 
+            onPress={submitMood}
+            disabled={!selectedMood || loading}
+          >
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.submitText}>Submit Mood</Text>
+              <Text style={styles.submitText}>
+                {moodHistory[today] ? 'Update Mood' : 'Save Mood'}
+              </Text>
             )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navIcon}><Ionicons name="home" size={28} color="#6C4AB6" /></TouchableOpacity>
-        <TouchableOpacity style={styles.navIcon}><FontAwesome name="smile-o" size={28} color="#F7C04A" /></TouchableOpacity>
-        <TouchableOpacity style={styles.navIcon}><MaterialIcons name="bar-chart" size={28} color="#6C4AB6" /></TouchableOpacity>
-        <TouchableOpacity style={styles.navIcon}><Ionicons name="settings" size={28} color="#6C4AB6" /></TouchableOpacity>
+        <TouchableOpacity style={styles.navIcon}>
+          <Ionicons name="home" size={28} color="#6C4AB6" />
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.navIcon, styles.activeNavIcon]}>
+          <FontAwesome name="smile-o" size={28} color="#F7C04A" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navIcon}>
+          <MaterialIcons name="bar-chart" size={28} color="#6C4AB6" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navIcon}>
+          <Ionicons name="settings" size={28} color="#6C4AB6" />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -278,81 +452,19 @@ const MoodTracker = () => {
 export default MoodTracker;
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F6FF',
+  },
   scrollContainer: {
     padding: 20,
-  },
-  heading: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  moodGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 20,
-    justifyContent: 'space-between',
-  },
-  moodButton: {
-    padding: 10,
-    margin: 5,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    alignItems: 'center',
-    width: '30%',
-  },
-  selectedMood: {
-    backgroundColor: '#d1e7dd',
-    borderColor: '#28a745',
-  },
-  moodEmoji: {
-    fontSize: 30,
-  },
-  label: {
-    fontWeight: '600',
-    marginBottom: 5,
-  },
-  intensityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  intensityCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedIntensity: {
-    backgroundColor: '#c8e6c9',
-    borderColor: '#388e3c',
-  },
-  textInput: {
-    borderWidth: 1,
-    borderRadius: 5,
-    padding: 10,
-    minHeight: 60,
-    textAlignVertical: 'top',
-    marginBottom: 20,
-  },
-  submitButton: {
-    backgroundColor: '#4CAF50',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  submitText: {
-    color: 'white',
-    fontWeight: '600',
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#F8F6FF',
+    paddingTop: 10,
   },
   headerDate: {
     color: '#6C4AB6',
@@ -361,62 +473,46 @@ const styles = StyleSheet.create({
   },
   headerGreeting: {
     color: '#6C4AB6',
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
+    marginTop: 4,
   },
   profilePic: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ccc',
-  },
-  cardYellow: {
-    backgroundColor: '#F7C04A',
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  noEntryText: {
-    color: '#6C4AB6',
-    fontWeight: '600',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  calendarStyle: {
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  gratefulLabel: {
-    color: '#6C4AB6',
-    fontWeight: '600',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  gratefulInput: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 10,
-    minHeight: 40,
-    marginBottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0e6ff',
+    borderColor: '#ccc',
   },
   moodSelectorContainer: {
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 24,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   moodArc: {
     width: 120,
     height: 120,
     borderRadius: 60,
     borderWidth: 8,
-    borderColor: '#ccc',
+    borderColor: '#4CAF50',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
-    marginBottom: 10,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   moodEmojiBig: {
     fontSize: 48,
@@ -425,31 +521,211 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#6C4AB6',
-    marginBottom: 10,
+    marginBottom: 16,
   },
   moodButtonRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    marginBottom: 10,
+    gap: 8,
+  },
+  moodButton: {
+    padding: 12,
+    margin: 4,
+    borderWidth: 2,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '30%',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  selectedMood: {
+    backgroundColor: '#f8f6ff',
+  },
+  moodEmoji: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  moodLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   intensitySection: {
-    marginBottom: 18,
+    marginBottom: 24,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  intensityLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6C4AB6',
+    marginBottom: 16,
+  },
+  intensityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+  },
+  intensityCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderColor: '#6C4AB6',
+  },
+  selectedIntensity: {
+    borderWidth: 3,
+  },
+  intensityText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  gratitudeSection: {
+    marginBottom: 24,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  gratefulLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6C4AB6',
+    marginBottom: 12,
+  },
+  gratefulInput: {
+    backgroundColor: '#f8f6ff',
+    borderRadius: 12,
+    padding: 16,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    fontSize: 16,
+    color: '#333',
+  },
+  calendarCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  calendarTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6C4AB6',
+    marginBottom: 12,
+  },
+  calendarStyle: {
+    borderRadius: 12,
+  },
+  submitButton: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  submitText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   bottomNav: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingVertical: 10,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    paddingVertical: 12,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 8,
   },
   navIcon: {
     padding: 8,
+  },
+  activeNavIcon: {
+    backgroundColor: '#f8f6ff',
+    borderRadius: 12,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#6C4AB6',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#f8f6ff',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#333',
+  },
+  addButton: {
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#6C4AB6',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  behaviorItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F6FF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  behaviorLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6C4AB6',
+  },
+  behaviorNote: {
+    fontSize: 14,
+    color: '#6B7280',
   },
 });
