@@ -77,7 +77,7 @@ const MoodTracker = () => {
 
     try {
       const token = await user.getIdToken();
-      const response = await fetch('http://192.168.7.10:3000/api/module/mood', {
+      const response = await fetch('https://smi-backend-c3zp.onrender.com/api/module/mood', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -120,7 +120,7 @@ const MoodTracker = () => {
       const token = await user.getIdToken();
       const isUpdating = moodHistory.hasOwnProperty(today);
 
-      const response = await fetch('http://192.168.7.10:3000/api/module/mood', {
+      const response = await fetch('https://smi-backend-c3zp.onrender.com/api/module/mood', {
         method: isUpdating ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
