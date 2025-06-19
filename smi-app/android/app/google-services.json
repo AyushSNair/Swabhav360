@@ -7,9 +7,28 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:922496243470:android:7b9f4556532984c7da695f",
+        "mobilesdk_app_id": "1:922496243470:android:59b6511e693835e8da695f",
         "android_client_info": {
-          "package_name": "com.smi.smiapp"
+          "package_name": "com.swabhav.swabhavapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCwFkqsBFAyGKLMRCoQCp3DnR3KJ7H9jDY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922496243470:android:feec2e3f39b8cf41da695f",
+        "android_client_info": {
+          "package_name": "host.exp.exponent"
         }
       },
       "oauth_client": [],
