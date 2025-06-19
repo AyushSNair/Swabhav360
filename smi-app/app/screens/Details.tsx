@@ -77,7 +77,7 @@ const ActivityIcon = () => <Text style={{ fontSize: 16 }}>⚡</Text>;
 const EnhancedActivityTracker: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [activeTab, setActiveTab] = useState<string>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'week' | 'month'>('today');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const auth = FIREBASE_AUTH;
   const [bestDay, setBestDay] = useState<string>('-');
@@ -118,9 +118,11 @@ const EnhancedActivityTracker: React.FC = () => {
         };
       }
 
-      // Calculate water goal achievement
-      const daysWithGoalMet = data.filter(day => day.waterIntake >= 8).length;
-      const waterGoalAchievement = Math.round((daysWithGoalMet / data.length) * 100);
+      // Calculate water goal achievement as average intake percentage
+      const totalWater = data.reduce((sum, day) => sum + (day.waterIntake || 0), 0);
+      const avgWater = totalWater / data.length;
+      let waterGoalAchievement = Math.round((avgWater / 8) * 100);
+      if (waterGoalAchievement > 100) waterGoalAchievement = 100;
 
       // Calculate current streak
       let streak = 0;
@@ -172,7 +174,7 @@ const EnhancedActivityTracker: React.FC = () => {
         throw new Error('User not authenticated');
       }
 
-      const response = await fetch(`http://192.168.7.14:3000/daily-activity?uid=${user.uid}`);
+      const response = await fetch(`http://192.168.7.10:3000/daily-activity?uid=${user.uid}`);
       if (!response.ok) {
         throw new Error('Failed to fetch activities');
       }
@@ -324,7 +326,7 @@ const EnhancedActivityTracker: React.FC = () => {
 
       console.log('Sending data:', dataToSend);
 
-      const response = await fetch('http://192.168.7.14:3000/daily-activity', {
+      const response = await fetch('http://192.168.7.10:3000/daily-activity', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -664,15 +666,21 @@ const EnhancedActivityTracker: React.FC = () => {
     } as TextStyle,
   };
 
+  const tabBackgrounds = {
+    today: '#e3f6fd',
+    week: '#f9fbe7',
+    month: '#ede7f6',
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: tabBackgrounds[activeTab] }]}>
       <ScrollView style={styles.scrollContainer}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, {backgroundColor: '#E9967A'}]}>
           <Text style={styles.headerTitle}>Daily Activity Tracker</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <CalendarIcon />
-            <Text style={[styles.dateText, { marginLeft: 8 }]}>{formatDate(selectedDate)}</Text>
+            <Text style={[styles.dateText,{color: '#fff'}, { marginLeft: 8 }]}>{formatDate(selectedDate)}</Text>
           </View>
           
           {/* Tab Navigation */}
@@ -680,7 +688,7 @@ const EnhancedActivityTracker: React.FC = () => {
             {['today', 'week', 'month'].map((tab) => (
               <TouchableOpacity
                 key={tab}
-                onPress={() => setActiveTab(tab)}
+                onPress={() => setActiveTab(tab as 'today' | 'week' | 'month')}
                 style={[styles.tab, activeTab === tab && styles.activeTab]}
               >
                 <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
@@ -696,19 +704,19 @@ const EnhancedActivityTracker: React.FC = () => {
           <>
             {/* Quick Stats */}
             <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
+            <View style={[styles.statCard, {backgroundColor: '#fadbd8'}]}>
                 <DropletsIcon />
                 <Text style={[styles.statNumber, { color: '#2563EB' }]}>{todayData.water}</Text>
                 <Text style={styles.statLabel}>glasses / 8 goal</Text>
               </View>
               
-              <View style={styles.statCard}>
+              <View style={[styles.statCard, {backgroundColor: '#fcf3cf'}]}>
                 <UtensilsIcon />
                 <Text style={[styles.statNumber, { color: '#10B981' }]}>{todayData.meals.length}</Text>
                 <Text style={styles.statLabel}>meals logged</Text>
               </View>
               
-              <View style={styles.statCard}>
+              <View style={[styles.statCard, {backgroundColor: '#d6eaf8'}]}>
                 <MoonIcon />
                 <Text style={[styles.statNumber, { color: '#7C3AED' }]}>{todayData.sleep.duration}h</Text>
                 <Text style={styles.statLabel}>last night</Text>
@@ -716,7 +724,7 @@ const EnhancedActivityTracker: React.FC = () => {
             </View>
 
             {/* Water Intake */}
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: '#ebdef0' }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <DropletsIcon />
@@ -725,14 +733,14 @@ const EnhancedActivityTracker: React.FC = () => {
                 <View style={styles.waterControls}>
                   <TouchableOpacity
                     onPress={() => updateWater(-1)}
-                    style={[styles.waterButton, { backgroundColor: '#FEE2E2' }]}
+                    style={[styles.waterButton, { backgroundColor: '#85c1e9' }]}
                   >
                     <MinusIcon />
                   </TouchableOpacity>
                   <Text style={styles.waterCount}>{todayData.water}</Text>
                   <TouchableOpacity
                     onPress={() => updateWater(1)}
-                    style={[styles.waterButton, { backgroundColor: '#DBEAFE' }]}
+                    style={[styles.waterButton, { backgroundColor: '#85c1e9' }]}
                   >
                     <PlusIcon />
                   </TouchableOpacity>
@@ -755,7 +763,7 @@ const EnhancedActivityTracker: React.FC = () => {
             </View>
 
             {/* Meal Tracking */}
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: '#fcf3cf' }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <UtensilsIcon />
@@ -786,7 +794,7 @@ const EnhancedActivityTracker: React.FC = () => {
             </View>
 
             {/* Sleep Pattern */}
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: '#d6eaf8' }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                 <MoonIcon />
                 <Text style={[styles.cardTitle, { marginLeft: 8, marginBottom: 0 }]}>Sleep Pattern</Text>
@@ -830,7 +838,7 @@ const EnhancedActivityTracker: React.FC = () => {
 
         {/* Week View */}
         {activeTab === 'week' && (
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: '#fffde7' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
               <BarChart3Icon />
               <Text style={[styles.cardTitle, { marginLeft: 8, marginBottom: 0 }]}>Weekly Overview</Text>
@@ -962,7 +970,7 @@ const EnhancedActivityTracker: React.FC = () => {
 
         {/* Monthly View */}
         {activeTab === 'month' && (
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: '#f3e5f5' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
               <TrendingUpIcon />
               <Text style={[styles.cardTitle, { marginLeft: 8, marginBottom: 0 }]}>Monthly Progress</Text>

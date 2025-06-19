@@ -182,7 +182,7 @@ const MoodTracker = () => {
       <View style={styles.headerContainer}>
         <View>
           <Text style={styles.headerDate}>{formattedDate}</Text>
-          <Text style={styles.headerGreeting}>Hey Jane</Text>
+          <Text style={styles.headerGreeting}>Hey! Welcome back 😊.</Text>
         </View>
         <View style={styles.profilePic} />
       </View>
