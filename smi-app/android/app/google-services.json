@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "922496243470",
+    "project_id": "smi-app-f4c87",
+    "storage_bucket": "smi-app-f4c87.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922496243470:android:7b9f4556532984c7da695f",
+        "android_client_info": {
+          "package_name": "com.smi.smiapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCwFkqsBFAyGKLMRCoQCp3DnR3KJ7H9jDY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
