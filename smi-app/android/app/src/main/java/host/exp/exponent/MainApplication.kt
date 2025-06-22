@@ -1,4 +1,4 @@
-package com.smi.smiapp
+package host.exp.exponent
 
 import android.app.Application
 import android.content.res.Configuration
