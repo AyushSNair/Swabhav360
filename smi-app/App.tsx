@@ -1,62 +1,139 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Login from './app/screens/Login';
-import List from './app/screens/List';
-import Details from './app/screens/Details';
-import { useEffect, useState } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { FIREBASE_AUTH } from './FirebaseConfig';
-import MoodTracker from './app/screens/MoodTracker';
 import Toast from 'react-native-toast-message';
-import NutritionTracker from './app/screens/NutritionTracker';
-import SportsPerformance from './app/screens/SportsPerformance';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { View, ActivityIndicator, Text, StyleSheet, LogBox } from 'react-native';
+import ProfileSetupScreen from './app/screens/profile-creation/ProfileSetupScreen';
+import { QuestProvider } from './app/QuestContext';
 const Stack = createNativeStackNavigator();
 const InsideStack = createNativeStackNavigator();
 
+// Import the tabs layout
+import TabLayout from './app/(tabs)/_layout';
+
 function InsideLayout() {
+  console.log('InsideLayout - Rendering TabLayout');
+  return <TabLayout />;
+}
+
+function AppContent() {
+  const { user, hasProfile, loading } = useAuth();
+
+  // Debug logging
+  console.log('AppContent - Auth State:', { 
+    hasUser: !!user, 
+    hasProfile, 
+    loading,
+    userUid: user?.uid
+  });
+
+  // Show loading indicator while checking auth state
+  if (loading) {
+    console.log('AppContent - Showing loading indicator');
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text style={{ marginTop: 10 }}>Loading...</Text>
+      </View>
+    );
+  }
+
+  // Log navigation state
+  console.log('AppContent - Rendering navigation. Current state:', {
+    isLoggedIn: !!user,
+    hasProfile,
+    showingScreen: !user ? 'Login' : !hasProfile ? 'ProfileSetup' : 'Inside'
+  });
+
+  console.log('AppContent - Rendering navigation. Current state:', {
+    isLoggedIn: !!user,
+    hasProfile,
+    showingScreen: !user ? 'Login' : !hasProfile ? 'ProfileSetup' : 'Inside'
+  });
+
   return (
-    <InsideStack.Navigator>
-      <InsideStack.Screen name="Activity List" component={List} />
-      <InsideStack.Screen name="Attendance details" component={Details} />
-      <InsideStack.Screen name="MoodTracker" component={MoodTracker} />
-      <InsideStack.Screen name="NutritionTracker" component={NutritionTracker} />
-      <InsideStack.Screen name="SportsPerformance" component={SportsPerformance} />
-    </InsideStack.Navigator>
+    <NavigationContainer 
+      onStateChange={(state) => {
+        console.log('Navigation state changed:', state);
+      }}
+    >
+      <Stack.Navigator>
+        {!user ? (
+          <Stack.Screen
+            name="Login"
+            component={Login}
+            options={{ headerShown: false }}
+          />
+        ) : !hasProfile ? (
+          <Stack.Screen
+            name="ProfileSetup"
+            component={ProfileSetupScreen}
+            options={{
+              header: () => (
+                <View style={styles.headerContainer}>
+                  <Text style={styles.headerTitle}>Complete Your Profile</Text>
+                  <View style={styles.progressBar}>
+                    <View style={styles.progressFill} />
+                  </View>
+                </View>
+              ),
+              headerBackVisible: false,
+            }}
+          />
+        ) : (
+          <Stack.Screen
+            name="Inside"
+            component={InsideLayout}
+            options={{ headerShown: false }}
+          />
+        )}
+      </Stack.Navigator>
+      <Toast />
+    </NavigationContainer>
   );
 }
 
+const styles = StyleSheet.create({
+  headerContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  progressBar: {
+    height: 4,
+    width: '100%',
+    backgroundColor: '#E5E7EB',
+    marginTop: 12,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    width: '60%',
+    backgroundColor: '#3B82F6',
+    borderRadius: 2,
+  },
+});
+
+// Ignore specific warnings
+LogBox.ignoreLogs([
+  'Non-serializable values were found in the navigation state',
+]);
+
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(FIREBASE_AUTH, (user) => {
-      console.log('user', user);
-      setUser(user);
-    });
-
-    return unsubscribe; // cleanup on unmount
-  }, []);
-
   return (
-    <>
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName="Login">
-          {user ? (
-            <Stack.Screen
-              name="Inside"
-              component={InsideLayout}
-              options={{ headerShown: false }}
-            />
-          ) : (
-            <Stack.Screen
-              name="Login"
-              component={Login}
-              options={{ headerShown: false }}
-            />
-          )}
-        </Stack.Navigator>
-      </NavigationContainer>
-      <Toast />
-    </>
+    <AuthProvider>
+      <QuestProvider>
+        <AppContent />
+      </QuestProvider>
+    </AuthProvider>
   );
 }
