@@ -20,6 +20,9 @@ if (getApps().length === 0) {
   FIREBASE_APP = getApps()[0];
 }
 
+// Initialize Firestore
+export const FIRESTORE_DB = getFirestore(FIREBASE_APP);
+
 export { FIREBASE_APP };
 export const FIREBASE_AUTH = getAuth(FIREBASE_APP);
 

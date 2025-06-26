@@ -8,41 +8,57 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  Dimensions,
   ScrollView,
-} from 'react-native';
-import React, { useState } from 'react';
-import { FIREBASE_AUTH } from '../../FirebaseConfig';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+  Dimensions,
+} from "react-native";
+import React, { useState } from "react";
+import { FIREBASE_AUTH } from "../../FirebaseConfig";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { useRouter } from "expo-router";
 
-const { height, width } = Dimensions.get('window');
+const { height, width } = Dimensions.get("window");
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const router = useRouter();
   const auth = FIREBASE_AUTH;
 
   const signIn = async () => {
+    if (!email || !password) {
+      alert("Please enter both email and password");
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await signInWithEmailAndPassword(auth, email, password);
-      console.log(response);
+      await signInWithEmailAndPassword(auth, email, password);
+      // Navigation will be handled by auth state change in _layout.tsx
     } catch (error: any) {
-      alert('Login failed: ' + error.message);
+      alert("Login failed: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const signUp = async () => {
+    if (!email || !password) {
+      alert("Please enter both email and password");
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await createUserWithEmailAndPassword(auth, email, password);
-      console.log(response);
-      alert('Signup successful!');
+      await createUserWithEmailAndPassword(auth, email, password);
+      // The user will be automatically redirected to the profile setup screen
+      // due to the auth state change in _layout.tsx
     } catch (error: any) {
-      alert('Signup failed: ' + error.message);
+      alert("Signup failed: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -50,12 +66,12 @@ const Login = () => {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <Image
-          source={require('../../assets/smi-logo.png')} // 📌 Use the full logo image
+          source={require("../../assets/smi-logo.png")} // 📌 Use the full logo image
           style={styles.logo}
           resizeMode="contain"
         />
@@ -79,19 +95,39 @@ const Login = () => {
             style={styles.input}
           />
 
-          {loading ? (
-            <ActivityIndicator size="large" color="#000" />
-          ) : (
-            <TouchableOpacity style={styles.loginButton} onPress={signIn}>
-              <Text style={styles.loginButtonText}>Log in</Text>
-            </TouchableOpacity>
+          {loading && (
+            <ActivityIndicator
+              size="large"
+              color="#000"
+              style={{ marginVertical: 10 }}
+            />
           )}
 
           <TouchableOpacity>
             <Text style={styles.link}>Forgot Password?</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={signUp}>
-            <Text style={styles.link}>Signup!</Text>
+          <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+            <Text style={styles.link}>
+              {isSignUp
+                ? "Already have an account? Login"
+                : "Don't have an account? Sign Up"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.loginButton,
+              { backgroundColor: isSignUp ? "#34C759" : "#007AFF" },
+            ]}
+            onPress={isSignUp ? signUp : signIn}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.loginButtonText}>
+                {isSignUp ? "Sign Up" : "Log In"}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -104,53 +140,53 @@ export default Login;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   logo: {
-    width: '100%',
+    width: "100%",
     height: height * 0.35,
     marginTop: 30,
   },
   formContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 24,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: -20,
   },
   loginTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   subText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 20,
   },
   input: {
-    width: '100%',
-    backgroundColor: '#E5F0FF',
+    width: "100%",
+    backgroundColor: "#E5F0FF",
     padding: 14,
     borderRadius: 10,
     marginBottom: 16,
     fontSize: 16,
   },
   loginButton: {
-    backgroundColor: '#000',
+    backgroundColor: "#000",
     padding: 14,
-    width: '100%',
+    width: "100%",
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   loginButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   link: {
     marginTop: 12,
-    color: '#888',
+    color: "#888",
   },
 });
