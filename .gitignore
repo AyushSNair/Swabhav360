@@ -1,1 +1,6 @@
 node_modules
+imp files/backend/firebaseServiceAccount.json
+smi-app/FirebaseConfig.ts
+.gitignore
+smi-app/FirebaseConfig.ts
+smi-app/FirebaseConfig.ts

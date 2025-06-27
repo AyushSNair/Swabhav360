@@ -41,9 +41,27 @@ fetchLeaderboard();
 }, [activeFilter]);
 
 const currentUserId = auth.currentUser?.uid;
-const topThree = leaderboard.filter(u => u.rank <= 3).sort((a, b) => a.rank - b.rank);
-const others = leaderboard.filter(u => u.rank > 3).sort((a, b) => a.rank - b.rank);
-const currentUserRank = leaderboard.find(u => u.id === currentUserId)?.rank || 0;
+
+// Robust user validation
+const isValidUser = (u: any): u is User =>
+  u &&
+  typeof u === 'object' &&
+  typeof u.id === 'string' &&
+  typeof u.rank === 'number' &&
+  typeof u.name === 'string' &&
+  typeof u.score === 'number';
+
+// Filter out any undefined or malformed users
+const filteredLeaderboard = leaderboard.filter(isValidUser);
+const topThree = filteredLeaderboard.filter(u => u.rank <= 3).sort((a, b) => a.rank - b.rank);
+const others = filteredLeaderboard.filter(u => u.rank > 3).sort((a, b) => a.rank - b.rank);
+const currentUserObj = filteredLeaderboard.find(u => u.id === currentUserId);
+const currentUserRank = currentUserObj ? currentUserObj.rank : 0;
+
+// Debug log
+console.log('filteredLeaderboard:', filteredLeaderboard);
+console.log('topThree:', topThree);
+console.log('others:', others);
 
 const getPodiumUserStyle = (rank: number) => {
 switch (rank) {
@@ -119,19 +137,19 @@ onPress={() => setActiveFilter('all-time')}
       </View>
 
       {/* Current User's Position */}
-      {currentUserRank > 3 && (
+      {currentUserRank > 3 && currentUserObj && (
         <View style={[styles.leaderboardItem, styles.currentUserItem]}>
           <View style={styles.rankContainer}>
             <Text style={styles.rank}>{currentUserRank}</Text>
           </View>
           <Image 
-            source={{ uri: leaderboard.find(u => u.id === currentUserId)?.avatar }} 
+            source={{ uri: currentUserObj.avatar }} 
             style={styles.avatar} 
             onError={() => console.log('Failed to load avatar')}
           />
           <Text style={[styles.name, styles.currentUserName]}>You</Text>
           <Text style={styles.score}>
-            {leaderboard.find(u => u.id === currentUserId)?.score.toLocaleString()}
+            {currentUserObj.score.toLocaleString()}
           </Text>
         </View>
       )}
@@ -142,14 +160,11 @@ onPress={() => setActiveFilter('all-time')}
   {!loading && !error && (
     <View style={styles.leaderboardList}>
       {others
-        .filter(user => user.id !== currentUserId) // Don't show current user again if they're in the middle
+        .filter(user => user.id !== currentUserId)
         .map((user) => (
           <View 
             key={user.id} 
-            style={[
-              styles.leaderboardItem,
-              user.id === currentUserId && styles.currentUserItem
-            ]}
+            style={[styles.leaderboardItem, user.id === currentUserId && styles.currentUserItem]}
           >
             <View style={styles.rankContainer}>
               <Text style={styles.rank}>{user.rank}</Text>
@@ -160,10 +175,7 @@ onPress={() => setActiveFilter('all-time')}
               onError={() => console.log('Failed to load avatar')}
             />
             <Text 
-              style={[
-                styles.name, 
-                user.id === currentUserId && styles.currentUserName
-              ]} 
+              style={[styles.name, user.id === currentUserId && styles.currentUserName]} 
               numberOfLines={1}
             >
               {user.id === currentUserId ? 'You' : user.name}

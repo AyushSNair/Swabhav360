@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import {
   StyleSheet,
   ScrollView,
@@ -10,6 +10,10 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  Easing,
+  Dimensions,
+  Modal,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { LinearGradient } from "expo-linear-gradient"
@@ -39,15 +43,20 @@ type Quests = {
   [key in QuestPeriod]: Task[]
 }
 
+type TaskState = {
+  checked?: boolean;
+  skipped?: boolean;
+  count?: number;
+  value?: string;
+  completedTimestamp?: string;
+  skippedTimestamp?: string;
+};
+
 type QuestState = {
   [key in QuestPeriod]: {
-    [taskId: string]: {
-      checked?: boolean
-      count?: number
-      value?: string
+    [taskId: string]: TaskState;
     }
-  }
-}
+};
 
 const initialQuests: Quests = {
   morning: [
@@ -73,18 +82,20 @@ const initialQuests: Quests = {
     { id: "6", text: "Practiced only with team members", points: 3 },
   ],
   afternoon: [
-    { id: "1", text: "Went to school today?", points: 3 },
-    { id: "2", text: "Helped someone? – explain the situation", points: 5, isInput: true, max: 200 },
-    { id: "3", text: "Forgave someone? – explain the situation", points: 5, isInput: true, max: 200 },
+    { id: "1", text: "Helped someone? – explain the situation", points: 5, isInput: true, max: 200 },
+    { id: "2", text: "Forgave someone? – explain the situation", points: 5, isInput: true, max: 200 },
+    { id: "3", text: "Went to school today?", points: 3 },
+    
   ],
   evening: [
     { id: "1", text: "Washed jersey kit after the game?", points: 3 },
-    { id: "2", text: "Dinner before 8 PM?", points: 3 },
-    { id: "3", text: "Daily update (before 9 PM)", points: 5, isInput: true, max: 500 },
-    { id: "4a", text: "What good happened today?", points: 3, isInput: true, max: 500 },
-    { id: "4b", text: "What bad happened today?", points: 3, isInput: true, max: 500 },
-    { id: "4c", text: "Highest moment of the day?", points: 3, isInput: true, max: 500 },
-    { id: "4d", text: "Lowest moment of the day?", points: 3, isInput: true, max: 500 },
+    
+    { id: "2", text: "Daily update (before 9 PM)", points: 5, isInput: true, max: 500 },
+    { id: "3", text: "What good happened today?", points: 3, isInput: true, max: 500 },
+    { id: "4a", text: "What bad happened today?", points: 3, isInput: true, max: 500 },
+    { id: "4b", text: "Highest moment of the day?", points: 3, isInput: true, max: 500 },
+    { id: "4c", text: "Lowest moment of the day?", points: 3, isInput: true, max: 500 },
+    { id: "4d", text: "Dinner before 8 PM?", points: 3 },
   ],
   daily: [
     { id: "1", text: "Drank minimum 2 litres of water?", points: 3 },
@@ -121,202 +132,337 @@ interface SessionData {
   timestamp: string;
 }
 
-const QuestCard = React.memo(
-  ({
-    title,
-    time,
-    icon,
-    color,
-    phrase,
-    period,
+// Visually appealing color palette for cards
+const CARD_COLORS = [
+  ['#f472b6', '#f9a8d4'], // Pink
+  ['#60a5fa', '#a5b4fc'], // Blue
+  ['#fbbf24', '#fde68a'], // Yellow
+  ['#34d399', '#6ee7b7'], // Green
+  ['#f87171', '#fca5a5'], // Red
+  ['#a78bfa', '#c4b5fd'], // Purple
+];
+
+// Helper to get color for a task index
+function getCardColors(idx: number) {
+  return CARD_COLORS[idx % CARD_COLORS.length];
+}
+
+// Full-screen celebration overlay with smooth animation
+function CelebrationOverlay({ visible, points, onHide }: { visible: boolean; points: number; onHide: () => void }) {
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.7)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }),
+      ]).start();
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(fadeAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
+          Animated.spring(scaleAnim, { toValue: 0.7, friction: 5, useNativeDriver: true }),
+        ]).start(() => onHide());
+      }, 1200);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: 0, right: 0, top: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.28)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+        opacity: fadeAnim,
+      }}
+      pointerEvents="auto"
+    >
+      <ConfettiBurst visible={visible} animate />
+      <Animated.View style={{ alignItems: 'center', justifyContent: 'center', transform: [{ scale: scaleAnim }] }}>
+        <Ionicons name="checkmark-circle" size={96} color="#fff" style={{ marginBottom: 18 }} />
+        <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold', marginBottom: 8 }}>Wohoo!</Text>
+        <Text style={{ color: '#fff', fontSize: 22, fontWeight: '600' }}>Task completed</Text>
+        <Text style={{ color: '#fff', fontSize: 22, fontWeight: '600', marginTop: 12 }}>+{points} points</Text>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+// Update ConfettiBurst for simple falling animation
+function ConfettiBurst({ visible, animate }: { visible: boolean; animate?: boolean }) {
+  const NUM_CONFETTI = 32;
+  const confettiAnims = React.useRef(
+    Array.from({ length: NUM_CONFETTI }, () => new Animated.Value(0))
+  ).current;
+  const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
+
+  React.useEffect(() => {
+    if (visible && animate) {
+      confettiAnims.forEach((anim, i) => {
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 900 + Math.random() * 400,
+          delay: i * 18,
+          useNativeDriver: true,
+        }).start(() => anim.setValue(0));
+      });
+    }
+  }, [visible, animate]);
+
+  if (!visible) return null;
+  return (
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' }}>
+      {confettiAnims.map((anim, i) => {
+        const leftPx = Math.random() * (screenWidth - 24);
+        const startY = -30 - Math.random() * 40;
+        const endY = screenHeight + 30 + Math.random() * 40;
+        const size = 12 + Math.random() * 12;
+        const color = CARD_COLORS[i % CARD_COLORS.length][Math.round(Math.random())];
+        return (
+          <Animated.View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: leftPx,
+              top: startY,
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              backgroundColor: color,
+              opacity: anim.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0.85, 0.85, 0] }),
+              transform: [
+                { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1.2, 1] }) },
+                { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, endY - startY] }) },
+                { rotate: anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${Math.random() > 0.5 ? 180 : -180}deg`] }) },
+              ],
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+type CardStackProps = {
+  tasks: Task[];
+  questState: QuestState[QuestPeriod];
+  onToggle: (period: QuestPeriod, taskId: string) => void;
+  onInput: (period: QuestPeriod, taskId: string, value: string) => void;
+  onCounter: (period: QuestPeriod, taskId: string, change: number) => void;
+  onSkipTask: (period: QuestPeriod, taskId: string) => void;
+  currentTaskIndex: number;
+  setCurrentTaskIndex: (idx: number) => void;
+  isSessionSubmitted: boolean;
+  period: QuestPeriod;
+  progressLabel: string;
+  handleSessionSubmit: (period: QuestPeriod) => void;
+};
+
+function CardStack({
     tasks,
     questState,
     onToggle,
     onInput,
     onCounter,
-    onClear,
-    onSessionSubmit,
+    onSkipTask,
+    currentTaskIndex,
+    setCurrentTaskIndex,
     isSessionSubmitted,
-    submittedSessions,
-  }: {
-    title: string
-    time?: string
-    icon: React.ComponentProps<typeof Ionicons>['name']
-    color: string
-    phrase: string
-    period: QuestPeriod
-    tasks: Task[]
-    questState: QuestState[QuestPeriod]
-    onToggle: (period: QuestPeriod, taskId: string) => void
-    onInput: (period: QuestPeriod, taskId: string, value: string) => void
-    onCounter: (period: QuestPeriod, taskId: string, change: number) => void
-    onClear: (period: QuestPeriod) => void
-    onSessionSubmit: (period: QuestPeriod) => void
-    isSessionSubmitted: boolean
-    submittedSessions: Record<string, SessionData>
-  }) => {
-    const completed = tasks.filter((task) => {
-      const periodState = questState[period as QuestPeriod];
-      if (!periodState) return false;
-      
-      type TaskState = {
-        checked?: boolean;
-        count?: number;
-        value?: string;
-      };
-      
-      // Safely access task state with proper type checking
-      const taskState = (periodState as Record<string, TaskState>)[task.id];
-      if (!taskState) return false;
-      
-      if (task.isCounter) return (taskState.count || 0) > 0;
-      if (task.isInput) {
-        const val = taskState.value ?? "";
-        if (task.id === "5" && period === "workout") {
-          return val !== "" && Number(val) > 0;
-        }
-        return val.trim() !== "";
-      }
-      return taskState.checked || false;
-    }).length
+    period,
+    progressLabel,
+    handleSessionSubmit,
+}: CardStackProps) {
+  const totalTasks = tasks.length;
+  const currentTask = tasks[currentTaskIndex];
+  const nextTask = currentTaskIndex < totalTasks - 1 ? tasks[currentTaskIndex + 1] : null;
+  const taskState = questState[currentTask.id] || {};
+  const isTaskDone = taskState.checked || taskState.skipped;
+  const [anim] = React.useState(new Animated.Value(0));
 
-    const handleSubmit = () => {
-      if (onSessionSubmit) {
-        onSessionSubmit(period as QuestPeriod);
+  // Animation state for celebration
+  const [showCelebration, setShowCelebration] = React.useState(false);
+  const [celebrationPoints, setCelebrationPoints] = React.useState(0);
+
+  // Animate card transition
+  const animateNext = () => {
+    Animated.sequence([
+      Animated.timing(anim, { toValue: 1, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+      Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
+    ]).start();
+  };
+  React.useEffect(() => { anim.setValue(0); }, [currentTaskIndex]);
+
+  const handleDone = () => {
+    setCelebrationPoints(currentTask.points || 0);
+    setShowCelebration(true);
+    // Always set checked: true for all task types
+    onToggle(period, currentTask.id);
+    // Card transition is now handled after overlay hides
+  };
+
+  // Hide overlay and move to next card
+  const handleCelebrationHide = () => {
+    setShowCelebration(false);
+    if (currentTaskIndex === totalTasks - 1) {
+      // Last task, auto-submit session
+      if (!isSessionSubmitted) {
+        handleSessionSubmit(period);
       }
+      // No need to advance index, UI will move to next period automatically
+    } else {
+      animateNext();
+      setTimeout(() => setCurrentTaskIndex(currentTaskIndex + 1), 250);
     }
+  };
+
+  const handleSkip = () => {
+    onSkipTask(period, currentTask.id);
+    animateNext();
+    setTimeout(() => setCurrentTaskIndex(currentTaskIndex + 1), 250);
+  };
+
+  // Card backgrounds
+  const [bg1, bg2] = getCardColors(currentTaskIndex);
+  const [nextBg1, nextBg2] = nextTask ? getCardColors(currentTaskIndex + 1) : [bg1, bg2];
+
+  // Progress dots
+  const dots = Array.from({ length: totalTasks }).map((_, i) => (
+    <View key={i} style={{
+      width: 8, height: 8, borderRadius: 4, margin: 3,
+      backgroundColor: i === currentTaskIndex ? '#fff' : 'rgba(255,255,255,0.4)',
+      borderWidth: i === currentTaskIndex ? 2 : 0,
+      borderColor: '#fff',
+    }} />
+  ));
 
     return (
-      <View style={styles.questCard}>
-        <View style={styles.questHeader}>
-          <View style={[styles.questIconContainer, { backgroundColor: `${color}20` }]}>
-            <Ionicons name={icon} size={24} color={color} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.questTitle}>{time ? `${title} (${time})` : title}</Text>
-            <Text style={styles.questPhrase}>{`"${phrase}"`}</Text>
-          </View>
-          <Text style={styles.questProgressText}>
-            {completed}/{tasks.length}
-          </Text>
-        </View>
-        <View style={[styles.questTasks, isSessionSubmitted && { opacity: 0.6 }]} 
-              pointerEvents={isSessionSubmitted ? 'none' : 'auto'}>
-          {tasks.map((task: Task) => {
-            const taskState = questState[task.id] || {}
-            return (
-              <View key={task.id} style={styles.taskItem}>
-                <View style={styles.taskInfo}>
-                  <TouchableOpacity
-                    style={[styles.taskCheckbox, taskState.checked && styles.taskCheckboxChecked]}
-                    onPress={() => onToggle(period, task.id)}
-                  >
-                    {taskState.checked && <Ionicons name="checkmark" size={16} color="#ffffff" />}
-                  </TouchableOpacity>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.taskText}>{task.text}</Text>
-                    {task.items && (
-                      <View style={styles.taskTags}>
-                        {task.items.map((item: string, index: number) => (
-                          <View key={index} style={styles.taskTag}>
-                            <Text style={styles.taskTagText}>{item}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                    {task.isInput && (
-                      <TextInput
-                        key={`${period}-${task.id}`}
-                        style={
-                          task.id === "5" && period === "workout"
-                            ? styles.numberInput
-                            : styles.textInput
-                        }
-                        keyboardType={task.id === "5" && period === "workout" ? "number-pad" : "default"}
-                        value={taskState.value || ""}
-                        onChangeText={(text) => onInput(period, task.id, text)}
-                        maxLength={task.max || 50}
-                        placeholder={task.id === "5" && period === "workout" ? "0" : "Enter details..."}
-                        multiline={task.id !== "5" || period !== "workout"}
-                        numberOfLines={task.id === "5" && period === "workout" ? 1 : 3}
-                        autoFocus={false}
-                      />
-                    )}
-                    {task.hasAdd && (
-                      <TouchableOpacity style={styles.addButton}>
-                        <Ionicons name="add-circle-outline" size={16} color="#6b7280" />
-                        <Text style={styles.addButtonText}>Add details</Text>
-                      </TouchableOpacity>
-                    )}
-                    {task.hasMedia && (
-                      <TouchableOpacity style={styles.mediaButton}>
-                        <Ionicons name="mic-outline" size={16} color="#6b7280" />
-                        <Text style={styles.mediaButtonText}>Record audio</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.taskPoints}>
-                  {task.isCounter && (
-                    <TouchableOpacity
-                      style={styles.counterButton}
-                      onPress={() => onCounter(period, task.id, -1)}
-                    >
-                      <Ionicons name="remove-circle-outline" size={16} color="#6b7280" />
-                    </TouchableOpacity>
-                  )}
-                  {task.isCounter && (
-                    <Text style={styles.taskCount}>{taskState.count || 0}</Text>
-                  )}
-                  {task.isCounter && (
-                    <TouchableOpacity
-                      style={styles.counterButton}
-                      onPress={() => onCounter(period, task.id, 1)}
-                    >
-                      <Ionicons name="add-circle-outline" size={16} color="#6b7280" />
-                    </TouchableOpacity>
-                  )}
-                  <Text style={styles.taskPointsText}>{task.points} points</Text>
-                </View>
-              </View>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 40 }}>
+      {/* Back Card (next task) */}
+      {nextTask && (
+        <Animated.View style={{
+          position: 'absolute',
+          top: 30,
+          zIndex: 0,
+          width: '90%',
+          height: 260,
+          borderRadius: 28,
+          backgroundColor: nextBg1,
+          opacity: 0.7,
+          transform: [{ scale: 0.95 }],
+          shadowColor: '#000',
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+        }}>
+          <LinearGradient colors={[nextBg1, nextBg2]} style={{ flex: 1, borderRadius: 28, padding: 24, justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>{nextTask.text}</Text>
+            <Text style={{ color: '#fff', opacity: 0.7, fontSize: 14 }}>Up next</Text>
+          </LinearGradient>
+        </Animated.View>
+      )}
+      {/* Front Card (current task) */}
+      <Animated.View style={{
+        width: '95%',
+        minHeight: 280,
+        borderRadius: 32,
+        backgroundColor: bg1,
+        zIndex: 1,
+        shadowColor: '#000',
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -40] }) }],
+        opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.7] }),
+      }}>
+        <LinearGradient colors={[bg1, bg2]} style={{ flex: 1, borderRadius: 32, padding: 28, justifyContent: 'center' }}>
+          <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 10 }}>{currentTask.text}</Text>
+          {/* Input fields for all isInput tasks */}
+          {currentTask.isInput && (
+            period === 'workout' && ['1','2','3','4','5'].includes(currentTask.id) ? (
+              <TextInput
+                style={[styles.numberInput, { marginTop: 12, marginBottom: 8 }]}
+                value={taskState.value || ''}
+                onChangeText={text => {
+                  let val = text.replace(/[^0-9]/g, '');
+                  if (currentTask.max && Number(val) > currentTask.max) val = String(currentTask.max);
+                  onInput(period, currentTask.id, val);
+                }}
+                placeholder={`Enter number${currentTask.max ? ' (max ' + currentTask.max + ')' : ''}`}
+                keyboardType="numeric"
+                editable={!isTaskDone && !isSessionSubmitted}
+                maxLength={currentTask.max ? String(currentTask.max).length : 4}
+              />
+            ) : (
+              <TextInput
+                style={[styles.textInput, { marginTop: 12, marginBottom: 8, minHeight: 60, maxHeight: 120, textAlignVertical: 'top' }]}
+                value={taskState.value || ''}
+                onChangeText={text => onInput(period, currentTask.id, text)}
+                placeholder={"Describe the situation..."}
+                editable={!isTaskDone && !isSessionSubmitted}
+                multiline
+                numberOfLines={4}
+                maxLength={currentTask.max || 200}
+              />
             )
-          })}
+          )}
+          {/* Counter UI for isCounter tasks */}
+          {currentTask.isCounter && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 }}>
+              <TouchableOpacity
+                style={[styles.counterButton, { marginRight: 8 }]}
+                onPress={() => {
+                  console.log('Counter - pressed', period, currentTask.id);
+                  onCounter(period, currentTask.id, -1);
+                }}
+                disabled={isTaskDone || isSessionSubmitted}
+              >
+                <Text style={{ fontSize: 20, color: '#4f46e5' }}>-</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize: 20, fontWeight: 'bold', minWidth: 32, textAlign: 'center', color: '#fff' }}>{taskState.count || 0}</Text>
+              <TouchableOpacity
+                style={[styles.counterButton, { marginLeft: 8 }]}
+                onPress={() => {
+                  console.log('Counter + pressed', period, currentTask.id);
+                  onCounter(period, currentTask.id, 1);
+                }}
+                disabled={isTaskDone || isSessionSubmitted}
+              >
+                <Text style={{ fontSize: 20, color: '#4f46e5' }}>+</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={{ flexDirection: 'row', marginTop: 32, justifyContent: 'space-between' }}>
+                    <TouchableOpacity
+              style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginRight: 8 }}
+              onPress={handleSkip}
+              disabled={isTaskDone || isSessionSubmitted}
+                    >
+              <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>Skip</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+              style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginLeft: 8 }}
+              onPress={handleDone}
+              disabled={isTaskDone || isSessionSubmitted}
+                    >
+              <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>Done</Text>
+                    </TouchableOpacity>
+                </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>{dots}</View>
+          <Text style={{ color: '#fff', fontSize: 14, textAlign: 'center', marginTop: 8 }}>{progressLabel}</Text>
+        </LinearGradient>
+        {/* Full-screen celebration overlay */}
+        <CelebrationOverlay visible={showCelebration} points={celebrationPoints} onHide={handleCelebrationHide} />
+      </Animated.View>
         </View>
-        <View style={styles.questActionsRow}>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.clearButton]} 
-            onPress={() => onClear(period)}
-            disabled={isSessionSubmitted}
-          >
-            <Ionicons name="close-circle-outline" size={18} color="#64748b" />
-            <Text style={styles.clearButtonText}>Clear</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[
-              styles.actionButton, 
-              styles.submitButton,
-              isSessionSubmitted && { 
-                backgroundColor: '#f0fdf4', 
-                borderColor: '#bbf7d0' 
-              }
-            ]} 
-            onPress={handleSubmit}
-            disabled={isSessionSubmitted}
-          >
-            <Ionicons 
-              name={isSessionSubmitted ? "checkmark-done" : "checkmark-circle-outline"} 
-              size={18} 
-              color="#10b981"
-            />
-            <Text style={styles.submitButtonText}>
-              {isSessionSubmitted ? "Submitted" : "Submit"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    )
-  }
-)
+  );
+}
+
+// Debounce timers for input fields (must persist across renders)
+const debounceTimers: Record<string, NodeJS.Timeout | number> = {};
 
 export default function JourneyScreen() {
   const [quests] = useState<Quests>(initialQuests)
@@ -324,7 +470,18 @@ export default function JourneyScreen() {
   const [submittedSessions, setSubmittedSessions] = useState<Record<string, SessionData>>({});
   const [isDayComplete, setIsDayComplete] = useState(false);
   
+  // Per-period current task index state
+  const [currentTaskIndices, setCurrentTaskIndices] = useState<Record<QuestPeriod, number>>({
+    morning: 0,
+    workout: 0,
+    afternoon: 0,
+    evening: 0,
+    daily: 0,
+  });
+  
   const { setQuestState: setCtxQuestState, streak, updateStats } = useQuest();
+  
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // Calculate stats
   const stats = React.useMemo(() => {
@@ -516,6 +673,22 @@ export default function JourneyScreen() {
       // Update daily totals
       await updateDailyTotals();
       
+      // Scroll to top after submission
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({ y: 0, animated: true });
+      }
+      
+      // Log confirmation of next period
+      setTimeout(() => {
+        const periods: QuestPeriod[] = ['morning', 'workout', 'afternoon', 'evening', 'daily'];
+        const firstIncompletePeriod = periods.find(period => {
+          const periodTasks = quests[period];
+          const periodState = questState[period] || {};
+          return periodTasks.some(task => !periodState[task.id]?.checked && !periodState[task.id]?.skipped);
+        });
+        const activePeriod = firstIncompletePeriod || periods[0];
+        console.log('[Journey] Next active period is now:', activePeriod);
+      }, 500);
     } catch (error) {
       console.error('Error saving session submission:', error);
       // Revert local state on error
@@ -548,120 +721,194 @@ export default function JourneyScreen() {
 
   const handleToggle = async (period: QuestPeriod, taskId: string) => {
     const newChecked = !questState[period]?.[taskId]?.checked;
-    
     // Optimistic update
-    setQuestState(prev => ({
-      ...prev,
-      [period]: {
-        ...prev[period],
-        [taskId]: {
-          ...prev[period]?.[taskId],
-          checked: newChecked
+    setQuestState(prev => {
+      const updated = {
+        ...prev,
+        [period]: {
+          ...prev[period],
+          [taskId]: {
+            ...prev[period]?.[taskId],
+            checked: newChecked
+          }
         }
-      }
-    }));
-    
-    // Update in Firestore if session is submitted
-    if (submittedSessions[period]?.submitted) {
-      try {
-        const sessionRef = doc(
-          FIRESTORE_DB,
-          'users',
-          getAuth().currentUser?.uid || '',
-          'dailyJourneys',
-          new Date().toISOString().split('T')[0],
-          'sessions',
-          period
-        );
-        
-        await updateDoc(sessionRef, {
-          [`questState.${taskId}.checked`]: newChecked,
-          timestamp: serverTimestamp()
-        });
-      } catch (error) {
-        console.error('Error updating toggle in Firestore:', error);
-      }
-    }
+      };
+      // Auto-save after state update
+      saveSession(period, {
+        submitted: !!submittedSessions[period]?.submitted,
+        score: calculateSessionScore(period),
+        timestamp: new Date().toISOString(),
+        questState: updated[period]
+      });
+      return updated;
+    });
   };
 
-  const handleCounter = async (period: QuestPeriod, taskId: string, amount: number) => {
-    const currentCount = questState[period]?.[taskId]?.count || 0;
-    const newCount = Math.max(0, currentCount + amount);
-    
-    // Optimistic update
-    setQuestState(prev => ({
-      ...prev,
-      [period]: {
-        ...prev[period],
-        [taskId]: {
-          ...prev[period]?.[taskId],
-          count: newCount
+  const handleCounter = (period: QuestPeriod, taskId: string, amount: number) => {
+    console.log('handleCounter called', period, taskId, amount);
+    setQuestState(prev => {
+      const currentCount = prev[period]?.[taskId]?.count || 0;
+      const newCount = Math.max(0, currentCount + amount);
+      const updated = {
+        ...prev,
+        [period]: {
+          ...prev[period],
+          [taskId]: {
+            ...prev[period]?.[taskId],
+            count: newCount
+          }
         }
-      }
-    }));
-    
-    // Update in Firestore if session is submitted
-    if (submittedSessions[period]?.submitted) {
-      try {
-        const sessionRef = doc(
-          FIRESTORE_DB,
-          'users',
-          getAuth().currentUser?.uid || '',
-          'dailyJourneys',
-          new Date().toISOString().split('T')[0],
-          'sessions',
-          period
-        );
-        
-        await updateDoc(sessionRef, {
-          [`questState.${taskId}.count`]: newCount,
-          timestamp: serverTimestamp()
-        });
-      } catch (error) {
-        console.error('Error updating counter in Firestore:', error);
-      }
-    }
+      };
+      // Save to Firestore after updating local state
+      saveSession(period, {
+        submitted: !!submittedSessions[period]?.submitted,
+        score: calculateSessionScore(period),
+        timestamp: new Date().toISOString(),
+        questState: updated[period]
+      });
+      return updated;
+    });
   };
 
-  const handleInput = async (period: QuestPeriod, taskId: string, text: string) => {
-    const value = (taskId === "5" && period === "workout") 
-      ? text.replace(/[^0-9]/g, "") 
-      : text;
-    
-    // Optimistic update
-    setQuestState(prev => ({
-      ...prev,
-      [period]: {
-        ...prev[period],
-        [taskId]: {
-          ...prev[period]?.[taskId],
-          value
+  const handleInput = (period: QuestPeriod, taskId: string, text: string) => {
+    let value = text;
+    if (period === 'workout' && ['1','2','3','4','5'].includes(taskId)) {
+      value = text.replace(/[^0-9]/g, '');
+      const max = quests[period].find(t => t.id === taskId)?.max;
+      if (max && Number(value) > max) value = String(max);
+    }
+    setQuestState(prev => {
+      const updated = {
+        ...prev,
+        [period]: {
+          ...prev[period],
+          [taskId]: {
+            ...prev[period]?.[taskId],
+            value
+          }
         }
+      };
+      // Debounce Firestore save
+      if (debounceTimers[`${period}-${taskId}`]) {
+        clearTimeout(debounceTimers[`${period}-${taskId}`]);
       }
-    }));
-    
-    // Update in Firestore if session is submitted
-    if (submittedSessions[period]?.submitted) {
-      try {
-        const sessionRef = doc(
-          FIRESTORE_DB,
-          'users',
-          getAuth().currentUser?.uid || '',
-          'dailyJourneys',
-          new Date().toISOString().split('T')[0],
-          'sessions',
-          period
-        );
-        
-        await updateDoc(sessionRef, {
-          [`questState.${taskId}.value`]: value,
-          timestamp: serverTimestamp()
+      debounceTimers[`${period}-${taskId}`] = setTimeout(() => {
+        saveSession(period, {
+          submitted: !!submittedSessions[period]?.submitted,
+          score: calculateSessionScore(period),
+          timestamp: new Date().toISOString(),
+          questState: updated[period]
         });
-      } catch (error) {
-        // Error handling without logging
+      }, 500); // 500ms debounce
+      return updated;
+    });
+  };
+
+  const handleSkipTask = (period: QuestPeriod, taskId: string) => {
+    setQuestState(prev => {
+      const updated = {
+        ...prev,
+        [period]: {
+          ...prev[period],
+          [taskId]: {
+            ...prev[period]?.[taskId],
+            skipped: true,
+            skippedTimestamp: new Date().toISOString()
+          }
+        }
+      };
+      // Auto-save after state update
+      saveSession(period, {
+        submitted: !!submittedSessions[period]?.submitted,
+        score: calculateSessionScore(period),
+        timestamp: new Date().toISOString(),
+        questState: updated[period]
+      });
+      return updated;
+    });
+  };
+
+  // Helper to find the first incomplete (not checked/skipped) task index for a period
+  const getFirstIncompleteTaskIndex = (period: QuestPeriod, tasks: Task[], state: QuestState) => {
+    const periodState = state[period] || {};
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+      const s = periodState[t.id];
+      if (!s || (!s.checked && !s.skipped)) {
+        return i;
       }
     }
+    return tasks.length - 1; // fallback to last
   };
+
+  // On mount or when questState changes, update currentTaskIndices to resume progress
+  useEffect(() => {
+    setCurrentTaskIndices((prev) => {
+      const updated: Record<QuestPeriod, number> = { ...prev };
+      (Object.keys(quests) as QuestPeriod[]).forEach((period) => {
+        updated[period] = getFirstIncompleteTaskIndex(period, quests[period], questState);
+      });
+      return updated;
+    });
+  }, [questState, quests]);
+
+  // Daily reset: if the date changes, reset all progress
+  useEffect(() => {
+    const checkAndResetDaily = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const lastDate = await AsyncStorage.getItem('journey_last_date');
+      if (lastDate !== today) {
+        setQuestState(getInitialQuestState(quests));
+        setCurrentTaskIndices({ morning: 0, workout: 0, afternoon: 0, evening: 0, daily: 0 });
+        await AsyncStorage.setItem('journey_last_date', today);
+      }
+    };
+    checkAndResetDaily();
+  }, [quests]);
+
+  // Auto-submit a period when all its tasks are completed or skipped
+  useEffect(() => {
+    const periods: QuestPeriod[] = ['morning', 'workout', 'afternoon', 'evening', 'daily'];
+    periods.forEach(period => {
+      const periodTasks = quests[period];
+      const periodState = questState[period] || {};
+      const allDone = periodTasks.every(task => {
+        const state = periodState[task.id];
+        if (!state) return false;
+        if (task.isCounter) return (state.count || 0) > 0;
+        if (task.isInput) {
+          if (task.id === "5" && period === "workout") {
+            return state.value !== "" && Number(state.value) > 0;
+          }
+          return (state.value || "").trim() !== "";
+        }
+        return state.checked || state.skipped;
+      });
+      if (allDone && !submittedSessions[period]?.submitted) {
+        handleSessionSubmit(period);
+      }
+    });
+  }, [questState, quests, submittedSessions]);
+
+  // In JourneyScreen, show only the current period (first incomplete), lock others
+  const periods: QuestPeriod[] = ['morning', 'workout', 'afternoon', 'evening', 'daily'];
+  const firstIncompletePeriod = periods.find(period => {
+    const periodTasks = quests[period];
+    const periodState = questState[period] || {};
+    return periodTasks.some(task => !periodState[task.id]?.checked && !periodState[task.id]?.skipped);
+  });
+  const activePeriod = firstIncompletePeriod || periods[0];
+
+  const [showAllDoneModal, setShowAllDoneModal] = useState(false);
+
+  // Check if all quests are done and submitted
+  const allPeriods = ['morning', 'workout', 'afternoon', 'evening', 'daily'] as QuestPeriod[];
+  const allDone = allPeriods.every(period => submittedSessions[period]?.submitted);
+
+  useEffect(() => {
+    if (allDone) setShowAllDoneModal(true);
+    else setShowAllDoneModal(false);
+  }, [allDone]);
 
   return (
     <KeyboardAvoidingView
@@ -670,6 +917,7 @@ export default function JourneyScreen() {
       keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
     >
       <ScrollView
+        ref={scrollViewRef}
         style={styles.container}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -723,109 +971,54 @@ export default function JourneyScreen() {
         </View>
 
         {/* Quests */}
-        <View style={styles.questsContainer}>
-          <View style={isDayComplete && { opacity: 0.6 }} pointerEvents={isDayComplete ? 'none' : 'auto'}>
-            <QuestCard
-              title="Morning Quest"
-              time="6 AM – 9 AM"
-              icon="sunny-outline"
-              color="#f59e0b"
-              tasks={quests.morning}
-              questState={questState.morning}
+        {!allDone && (
+          <View style={styles.questsContainer}>
+            <CardStack
+              tasks={quests[activePeriod]}
+              questState={questState[activePeriod]}
               onToggle={handleToggle}
               onInput={handleInput}
               onCounter={handleCounter}
-              onClear={handleClear}
-              onSessionSubmit={handleSessionSubmit}
-              isSessionSubmitted={!!submittedSessions.morning?.submitted}
-              submittedSessions={submittedSessions}
-              period="morning"
-              phrase="Start your day right"
+              onSkipTask={handleSkipTask}
+              currentTaskIndex={currentTaskIndices[activePeriod]}
+              setCurrentTaskIndex={idx => setCurrentTaskIndices(prev => ({ ...prev, [activePeriod]: idx }))}
+              isSessionSubmitted={!!submittedSessions[activePeriod]?.submitted}
+              period={activePeriod}
+              progressLabel={`${activePeriod.charAt(0).toUpperCase() + activePeriod.slice(1)} Quest`}
+              handleSessionSubmit={handleSessionSubmit}
             />
           </View>
-
-          <View style={[styles.questCard, isDayComplete && { opacity: 0.6 }]} pointerEvents={isDayComplete ? 'none' : 'auto'}>
-            <QuestCard
-              title="Workout Session"
-              icon="fitness-outline"
-              color="#ef4444"
-              tasks={quests.workout}
-              questState={questState.workout}
-              onToggle={handleToggle}
-              onInput={handleInput}
-              onCounter={handleCounter}
-              onClear={handleClear}
-              onSessionSubmit={handleSessionSubmit}
-              isSessionSubmitted={!!submittedSessions.workout?.submitted}
-              submittedSessions={submittedSessions}
-              period="workout"
-              phrase="Stay fit and strong"
-            />
-          </View>
-
-          <View style={[styles.questCard, isDayComplete && { opacity: 0.6 }]} pointerEvents={isDayComplete ? 'none' : 'auto'}>
-            <QuestCard
-              title="Afternoon Check"
-              time="1 PM – 3 PM"
-              icon="time-outline"
-              color="#3b82f6"
-              tasks={quests.afternoon}
-              questState={questState.afternoon}
-              onToggle={handleToggle}
-              onInput={handleInput}
-              onCounter={handleCounter}
-              onClear={handleClear}
-              onSessionSubmit={handleSessionSubmit}
-              isSessionSubmitted={!!submittedSessions.afternoon?.submitted}
-              submittedSessions={submittedSessions}
-              period="afternoon"
-              phrase="Midday check-in"
-            />
-          </View>
-
-          <View style={[styles.questCard, isDayComplete && { opacity: 0.6 }]} pointerEvents={isDayComplete ? 'none' : 'auto'}>
-            <QuestCard
-              title="Evening Review"
-              time="6 PM – 8 PM"
-              icon="moon-outline"
-              color="#8b5cf6"
-              tasks={quests.evening}
-              questState={questState.evening}
-              onToggle={handleToggle}
-              onInput={handleInput}
-              onCounter={handleCounter}
-              onClear={handleClear}
-              onSessionSubmit={handleSessionSubmit}
-              isSessionSubmitted={!!submittedSessions.evening?.submitted}
-              submittedSessions={submittedSessions}
-              period="evening"
-              phrase="Reflect on your day"
-            />
-          </View>
-
-          <View style={[styles.questCard, isDayComplete && { opacity: 0.6 }]} pointerEvents={isDayComplete ? 'none' : 'auto'}>
-            <QuestCard
-              title="Daily Habits"
-              time="All Day"
-              icon="shield-checkmark-outline"
-              color="#10b981"
-              tasks={quests.daily}
-              questState={questState.daily}
-              onToggle={handleToggle}
-              onInput={handleInput}
-              onCounter={handleCounter}
-              onClear={handleClear}
-              onSessionSubmit={handleSessionSubmit}
-              isSessionSubmitted={!!submittedSessions.daily?.submitted}
-              submittedSessions={submittedSessions}
-              period="daily"
-              phrase="Daily goals and habits"
-            />
-          </View>
-        </View>
+        )}
         <View style={{ height: 40 }} />
 
       </ScrollView>
+      {/* All Done Modal */}
+      <Modal
+        visible={showAllDoneModal}
+        transparent
+        animationType="fade"
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 32, alignItems: 'center', maxWidth: 320 }}>
+            <Ionicons name="trophy" size={64} color="#f59e0b" style={{ marginBottom: 16 }} />
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#4f46e5', textAlign: 'center', marginBottom: 12 }}>
+              All quests done for today!
+            </Text>
+            <Text style={{ fontSize: 18, color: '#22223b', textAlign: 'center', marginBottom: 8 }}>
+              Come back tomorrow and keep winning and keep rising.
+            </Text>
+            <Text style={{ fontSize: 18, color: '#22223b', textAlign: 'center', fontWeight: 'bold', marginBottom: 24 }}>
+              Never give up!!
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: '#4f46e5', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32 }}
+              onPress={() => setShowAllDoneModal(false)}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Back to App</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

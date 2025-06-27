@@ -62,11 +62,15 @@ const getSessionRef = (userId: string, period: QuestPeriod, date: string = getCu
 // Save or update a session
 export const saveSession = async (period: QuestPeriod, data: SessionData) => {
   const userId = getUserId();
+  console.log('[saveSession] userId:', userId);
   if (!userId) throw new Error('User not authenticated');
 
   const date = getCurrentDate();
   const sessionRef = getSessionRef(userId, period, date);
   const dailyJourneyRef = getDailyJourneyRef(userId, date);
+  console.log('[saveSession] date:', date);
+  console.log('[saveSession] sessionRef:', sessionRef.path);
+  console.log('[saveSession] dailyJourneyRef:', dailyJourneyRef.path);
 
   const sessionData = {
     ...data,
@@ -86,7 +90,14 @@ export const saveSession = async (period: QuestPeriod, data: SessionData) => {
     percentComplete: 0 // Will be updated after all sessions are processed
   }, { merge: true });
 
-  await batch.commit();
+  try {
+    console.log('[saveSession] About to commit batch');
+    await batch.commit();
+    console.log('[saveSession] Batch commit successful');
+  } catch (error) {
+    console.error('[saveSession] Batch commit failed:', error);
+    throw error;
+  }
   
   return { ...sessionData, id: period };
 };
@@ -266,12 +277,14 @@ export const getLeaderboard = async (timeRange: 'weekly' | 'monthly' | 'all-time
     // Sort by score in descending order
     leaderboard.sort((a, b) => b.score - a.score);
     
-    // Add ranks and default avatars
-    return leaderboard.map((user, index) => ({
-      ...user,
-      rank: index + 1,
-      avatar: user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`
-    }));
+    // Filter out any undefined or null users before mapping
+    return leaderboard
+      .filter(Boolean)
+      .map((user, index) => ({
+        ...user,
+        rank: index + 1,
+        avatar: user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`
+      }));
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
     throw error;
