@@ -1,6 +1,7 @@
+// backend/routes/moodModule.js
 import express from 'express';
-import Mood from '../models/Mood.js';
 import admin from '../firebaseAdmin.js';
+import db from '../firebase.js';
 
 const router = express.Router();
 
@@ -21,28 +22,35 @@ const verifyFirebaseToken = async (req, res, next) => {
 // GET mood history
 router.get('/', verifyFirebaseToken, async (req, res) => {
   try {
-    const moods = await Mood.find({ uid: req.user.uid }).sort({ date: -1 });
+    const snapshot = await db
+      .collection('moods')
+      .where('uid', '==', req.user.uid)
+      .orderBy('date', 'desc')
+      .get();
+
+    const moods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(moods);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST mood (new entry)
+// POST mood
 router.post('/', verifyFirebaseToken, async (req, res) => {
   const { mood, note, intensity } = req.body;
   const uid = req.user.uid;
+  const date = new Date().toISOString().split('T')[0];
 
   try {
-    const newEntry = new Mood({
+    const newMood = {
       uid,
       mood,
       note,
       intensity,
-      date: new Date().toISOString().split('T')[0], // just the date part
-    });
-    await newEntry.save();
-    res.status(201).json(newEntry);
+      date,
+    };
+    const ref = await db.collection('moods').add(newMood);
+    res.status(201).json({ id: ref.id, ...newMood });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -54,36 +62,47 @@ router.get('/:date', verifyFirebaseToken, async (req, res) => {
   const uid = req.user.uid;
 
   try {
-    const moodEntry = await Mood.findOne({ uid, date });
-    if (!moodEntry) {
+    const snapshot = await db
+      .collection('moods')
+      .where('uid', '==', uid)
+      .where('date', '==', date)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
       return res.status(404).json({ message: 'No mood data found for this date' });
     }
-    res.json(moodEntry);
+
+    const doc = snapshot.docs[0];
+    res.json({ id: doc.id, ...doc.data() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-
-// ✅ PUT mood (update today’s entry)
+// PUT (update mood for a specific date)
 router.put('/', verifyFirebaseToken, async (req, res) => {
   const { mood, note, intensity, date } = req.body;
   const uid = req.user.uid;
 
-  if (!date) return res.status(400).json({ error: 'Date is required to update mood' });
+  if (!date) return res.status(400).json({ error: 'Date is required' });
 
   try {
-    const updated = await Mood.findOneAndUpdate(
-      { uid, date },
-      { mood, note, intensity },
-      { new: true }
-    );
+    const snapshot = await db
+      .collection('moods')
+      .where('uid', '==', uid)
+      .where('date', '==', date)
+      .limit(1)
+      .get();
 
-    if (!updated) {
+    if (snapshot.empty) {
       return res.status(404).json({ error: 'Mood entry not found for the specified date' });
     }
 
-    res.json(updated);
+    const doc = snapshot.docs[0];
+    await db.collection('moods').doc(doc.id).update({ mood, note, intensity });
+
+    res.json({ id: doc.id, mood, note, intensity, date, uid });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
