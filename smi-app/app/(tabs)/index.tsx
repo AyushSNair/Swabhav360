@@ -16,6 +16,7 @@ import {
   Modal,
   Image,
   FlatList,
+  ImageBackground,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { LinearGradient } from "expo-linear-gradient"
@@ -149,51 +150,6 @@ function getCardColors(idx: number) {
   return CARD_COLORS[idx % CARD_COLORS.length];
 }
 
-// Full-screen celebration overlay with smooth animation
-function CelebrationOverlay({ visible, points, onHide }: { visible: boolean; points: number; onHide: () => void }) {
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const scaleAnim = React.useRef(new Animated.Value(0.7)).current;
-
-  React.useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }),
-      ]).start();
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(fadeAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
-          Animated.spring(scaleAnim, { toValue: 0.7, friction: 5, useNativeDriver: true }),
-        ]).start(() => onHide());
-      }, 1200);
-    }
-  }, [visible]);
-
-  if (!visible) return null;
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: 0, right: 0, top: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.28)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100,
-        opacity: fadeAnim,
-      }}
-      pointerEvents="auto"
-    >
-      <ConfettiBurst visible={visible} animate />
-      <Animated.View style={{ alignItems: 'center', justifyContent: 'center', transform: [{ scale: scaleAnim }] }}>
-        <Ionicons name="checkmark-circle" size={96} color="#fff" style={{ marginBottom: 18 }} />
-        <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold', marginBottom: 8 }}>Wohoo!</Text>
-        <Text style={{ color: '#fff', fontSize: 22, fontWeight: '600' }}>Task completed</Text>
-        <Text style={{ color: '#fff', fontSize: 22, fontWeight: '600', marginTop: 12 }}>+{points} points</Text>
-      </Animated.View>
-    </Animated.View>
-  );
-}
-
 // Update ConfettiBurst for simple falling animation
 function ConfettiBurst({ visible, animate }: { visible: boolean; animate?: boolean }) {
   const NUM_CONFETTI = 32;
@@ -285,10 +241,6 @@ function CardStack({
   const isTaskDone = taskState.checked || taskState.skipped;
   const [anim] = React.useState(new Animated.Value(0));
 
-  // Animation state for celebration
-  const [showCelebration, setShowCelebration] = React.useState(false);
-  const [celebrationPoints, setCelebrationPoints] = React.useState(0);
-
   // Animate card transition
   const animateNext = () => {
     Animated.sequence([
@@ -299,8 +251,6 @@ function CardStack({
   React.useEffect(() => { anim.setValue(0); }, [currentTaskIndex]);
 
   const handleDone = () => {
-    setCelebrationPoints(currentTask.points || 0);
-    setShowCelebration(true);
     // Always set checked: true for all task types
     onToggle(period, currentTask.id);
     // Card transition is now handled after overlay hides
@@ -308,7 +258,6 @@ function CardStack({
 
   // Hide overlay and move to next card
   const handleCelebrationHide = () => {
-    setShowCelebration(false);
     if (currentTaskIndex === totalTasks - 1) {
       // Last task, auto-submit session
       if (!isSessionSubmitted) {
@@ -341,52 +290,27 @@ function CardStack({
     }} />
   ));
 
-    return (
+  return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 40 }}>
-      {/* Back Card (next task) */}
-      {nextTask && (
+      <MagicalQuestCard>
         <Animated.View style={{
-          position: 'absolute',
-          top: 30,
-          zIndex: 0,
-          width: '90%',
-          height: 260,
-          borderRadius: 28,
-          backgroundColor: nextBg1,
-          opacity: 0.7,
-          transform: [{ scale: 0.95 }],
+          width: '100%',
+          minHeight: 224,
+          borderRadius: 32,
+          zIndex: 1,
           shadowColor: '#000',
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.12,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 8 },
+          transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -40] }) }],
+          opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.7] }),
         }}>
-          <LinearGradient colors={[nextBg1, nextBg2]} style={{ flex: 1, borderRadius: 28, padding: 24, justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>{nextTask.text}</Text>
-            <Text style={{ color: '#fff', opacity: 0.7, fontSize: 14 }}>Up next</Text>
-          </LinearGradient>
-        </Animated.View>
-      )}
-      {/* Front Card (current task) */}
-      <Animated.View style={{
-        width: '95%',
-        minHeight: 280,
-        borderRadius: 32,
-        backgroundColor: bg1,
-        zIndex: 1,
-        shadowColor: '#000',
-        shadowOpacity: 0.12,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 8 },
-        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -40] }) }],
-        opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.7] }),
-      }}>
-        <LinearGradient colors={[bg1, bg2]} style={{ flex: 1, borderRadius: 32, padding: 28, justifyContent: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 10 }}>{i18n.t(currentTask.text)}</Text>
           {/* Input fields for all isInput tasks */}
           {currentTask.isInput && (
             period === 'workout' && ['1','2','3','4','5'].includes(currentTask.id) ? (
               <TextInput
-                style={[styles.numberInput, { marginTop: 12, marginBottom: 8 }]}
+                style={[styles.numberInput, { marginTop: 12, marginBottom: 8 }]} 
                 value={taskState.value || ''}
                 onChangeText={text => {
                   let val = text.replace(/[^0-9]/g, '');
@@ -415,7 +339,7 @@ function CardStack({
           {currentTask.isCounter && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 }}>
               <TouchableOpacity
-                style={[styles.counterButton, { marginRight: 8 }]}
+                style={[styles.counterButton, { marginRight: 8 }]} 
                 onPress={() => {
                   console.log('Counter - pressed', period, currentTask.id);
                   onCounter(period, currentTask.id, -1);
@@ -426,7 +350,7 @@ function CardStack({
               </TouchableOpacity>
               <Text style={{ fontSize: 20, fontWeight: 'bold', minWidth: 32, textAlign: 'center', color: '#fff' }}>{taskState.count || 0}</Text>
               <TouchableOpacity
-                style={[styles.counterButton, { marginLeft: 8 }]}
+                style={[styles.counterButton, { marginLeft: 8 }]} 
                 onPress={() => {
                   console.log('Counter + pressed', period, currentTask.id);
                   onCounter(period, currentTask.id, 1);
@@ -438,28 +362,26 @@ function CardStack({
             </View>
           )}
           <View style={{ flexDirection: 'row', marginTop: 32, justifyContent: 'space-between' }}>
-                    <TouchableOpacity
+            <TouchableOpacity
               style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginRight: 8 }}
               onPress={handleSkip}
               disabled={isTaskDone || isSessionSubmitted}
-                    >
+            >
               <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>{i18n.t('skip')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
+            </TouchableOpacity>
+            <TouchableOpacity
               style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginLeft: 8 }}
               onPress={handleDone}
               disabled={isTaskDone || isSessionSubmitted}
-                    >
+            >
               <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>{i18n.t('done')}</Text>
-                    </TouchableOpacity>
-                </View>
+            </TouchableOpacity>
+          </View>
           <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>{dots}</View>
           <Text style={{ color: '#fff', fontSize: 14, textAlign: 'center', marginTop: 8 }}>{progressLabel}</Text>
-        </LinearGradient>
-        {/* Full-screen celebration overlay */}
-        <CelebrationOverlay visible={showCelebration} points={celebrationPoints} onHide={handleCelebrationHide} />
-      </Animated.View>
-        </View>
+        </Animated.View>
+      </MagicalQuestCard>
+    </View>
   );
 }
 
@@ -757,6 +679,93 @@ const JourneyZigZagPathBar = forwardRef(function JourneyZigZagPathBar({
     </View>
   );
 });
+
+// Replace Starfield with MovingStarfield for a moving magical effect
+function MovingStarfield({ starCount = 20 }) {
+  const stars = Array.from({ length: starCount }).map((_, i) => ({
+    initialLeft: Math.random() * 280,
+    initialTop: Math.random() * 180,
+    size: 2 + Math.random() * 3,
+    delay: Math.random() * 2000,
+    speed: 10 + Math.random() * 20, // pixels per second
+  }));
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {stars.map((star, i) => {
+        const leftAnim = useRef(new Animated.Value(star.initialLeft)).current;
+        useEffect(() => {
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(leftAnim, {
+                toValue: 320, // move to the right edge
+                duration: ((320 - star.initialLeft) / star.speed) * 1000,
+                delay: star.delay,
+                useNativeDriver: false,
+              }),
+              Animated.timing(leftAnim, {
+                toValue: 0,
+                duration: 0,
+                useNativeDriver: false,
+              }),
+            ])
+          ).start();
+        }, []);
+        return (
+          <Animated.View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: leftAnim,
+              top: star.initialTop,
+              width: star.size,
+              height: star.size,
+              borderRadius: star.size / 2,
+              backgroundColor: '#fff',
+              opacity: 0.8,
+              shadowColor: '#fff',
+              shadowOpacity: 0.8,
+              shadowRadius: 4,
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+function MagicalQuestCard({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={{ borderRadius: 32, overflow: 'hidden', marginBottom: 20, width: 320, minHeight: 280 }}>
+      <LinearGradient
+        colors={['#a78bfa', '#f472b6', '#60a5fa']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ minHeight: 280, padding: 28, justifyContent: 'center' }}
+      >
+        <MovingStarfield starCount={24} />
+        {children}
+      </LinearGradient>
+    </View>
+  );
+}
+
+// Add a MagicalCard component for the highlighted top card
+function MagicalCard({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={{ borderRadius: 16, overflow: 'hidden', margin: 20 }}>
+      <LinearGradient
+        colors={['#6d28d9', '#4f46e5']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ padding: 20, minHeight: 180, justifyContent: 'center' }}
+      >
+        <MovingStarfield starCount={18} />
+        {children}
+      </LinearGradient>
+    </View>
+  );
+}
 
 export default function JourneyScreen() {
   const [quests] = useState<Quests>(initialQuests)
@@ -1218,192 +1227,197 @@ export default function JourneyScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <ImageBackground
+      source={require('../../assets/bg-pattern.png')}
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+      resizeMode="repeat"
     >
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{i18n.t('welcome')}</Text>
-          <View style={styles.languageContainer}>
-            <Picker
-              selectedValue={language}
-              style={styles.languagePicker}
-              onValueChange={handleLanguageChange}
-            >
-              <Picker.Item label="English" value="en" />
-              <Picker.Item label="मराठी" value="mr" />
-            </Picker>
-          </View>
-          <View style={styles.headerPoints}>
-            <Ionicons name="star" size={16} color="#f59e0b" />
-            <Text style={styles.headerPointsText}>{totalPoints} {i18n.t('points')}</Text>
-          </View>
-        </View>
-
-        {/* Journey Card */}
-        <LinearGradient colors={["#6d28d9", "#4f46e5"]} style={styles.journeyCard}>
-          <View style={styles.journeyHeader}>
-            <Text style={styles.journeyTitle}>My Journey Today</Text>
-            <View>
-              <Text style={styles.journeyPoints}>{totalPoints}</Text>
-              <Text style={styles.journeyPointsLabel}>Total Points</Text>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{i18n.t('welcome')}</Text>
+            <View style={styles.languageContainer}>
+              <Picker
+                selectedValue={language}
+                style={styles.languagePicker}
+                onValueChange={handleLanguageChange}
+              >
+                <Picker.Item label="English" value="en" />
+                <Picker.Item label="मराठी" value="mr" />
+              </Picker>
+            </View>
+            <View style={styles.headerPoints}>
+              <Ionicons name="star" size={16} color="#f59e0b" />
+              <Text style={styles.headerPointsText}>{totalPoints} {i18n.t('points')}</Text>
             </View>
           </View>
-          <Text style={styles.journeySubtitle}>Ready to become your best self?</Text>
-          <View style={styles.progressContainer}>
-            <Text style={styles.progressLabel}>Daily Progress</Text>
-          </View>
-          <JourneyZigZagPathBar
-            ref={progressBarRef}
-            quests={quests}
-            questState={questState}
-            submittedSessions={submittedSessions}
-            activePeriod={activePeriod}
-            onNodePress={setSelectedPeriod}
-          />
-        </LinearGradient>
 
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="flash-outline" size={24} color="#f59e0b" />
-            <Text style={styles.statValue}>3</Text>
-            <Text style={styles.statLabel}>Day Streak</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="ribbon-outline" size={24} color="#6d28d9" />
-            <Text style={styles.statValue}>2</Text>
-            <Text style={styles.statLabel}>Badges</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="checkmark-circle-outline" size={24} color="#10b981" />
-            <Text style={styles.statValue}>{percentComplete}%</Text>
-            <Text style={styles.statLabel}>Complete</Text>
-          </View>
-        </View>
-
-        {/* Quests */}
-        {!allDone && (
-          <View style={styles.questsContainer}>
-            <CardStack
-              tasks={quests[activePeriod]}
-              questState={questState[activePeriod]}
-              onToggle={handleToggle}
-              onInput={handleInput}
-              onCounter={handleCounter}
-              onSkipTask={handleSkipTask}
-              currentTaskIndex={currentTaskIndices[activePeriod]}
-              setCurrentTaskIndex={idx => setCurrentTaskIndices(prev => ({ ...prev, [activePeriod]: idx }))}
-              isSessionSubmitted={!!submittedSessions[activePeriod]?.submitted}
-              period={activePeriod}
-              progressLabel={`${activePeriod.charAt(0).toUpperCase() + activePeriod.slice(1)} Quest`}
-              handleSessionSubmit={handleSessionSubmit}
+          {/* Journey Card */}
+          <MagicalCard>
+            <View style={styles.journeyHeader}>
+              <Text style={styles.journeyTitle}>My Journey Today</Text>
+              <View>
+                <Text style={styles.journeyPoints}>{totalPoints}</Text>
+                <Text style={styles.journeyPointsLabel}>Total Points</Text>
+              </View>
+            </View>
+            <Text style={styles.journeySubtitle}>Ready to become your best self?</Text>
+            <View style={styles.progressContainer}>
+              <Text style={styles.progressLabel}>Daily Progress</Text>
+            </View>
+            <JourneyZigZagPathBar
+              ref={progressBarRef}
+              quests={quests}
+              questState={questState}
+              submittedSessions={submittedSessions}
+              activePeriod={activePeriod}
+              onNodePress={setSelectedPeriod}
             />
-          </View>
-        )}
-        <View style={{ height: 40 }} />
+          </MagicalCard>
 
-      </ScrollView>
-      {/* All Done Modal */}
-      <Modal
-        visible={showAllDoneModal}
-        transparent
-        animationType="fade"
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 32, alignItems: 'center', maxWidth: 320 }}>
-            <Ionicons name="trophy" size={64} color="#f59e0b" style={{ marginBottom: 16 }} />
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#4f46e5', textAlign: 'center', marginBottom: 12 }}>
-              All quests done for today!
-            </Text>
-            <Text style={{ fontSize: 18, color: '#22223b', textAlign: 'center', marginBottom: 8 }}>
-              Come back tomorrow and keep winning and keep rising.
-            </Text>
-            <Text style={{ fontSize: 18, color: '#22223b', textAlign: 'center', fontWeight: 'bold', marginBottom: 24 }}>
-              Never give up!!
-            </Text>
-            <TouchableOpacity
-              style={{ backgroundColor: '#4f46e5', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32 }}
-              onPress={() => setShowAllDoneModal(false)}
-            >
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Back to App</Text>
-            </TouchableOpacity>
+          {/* Stats */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Ionicons name="flash-outline" size={24} color="#f59e0b" />
+              <Text style={styles.statValue}>3</Text>
+              <Text style={styles.statLabel}>Day Streak</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Ionicons name="ribbon-outline" size={24} color="#6d28d9" />
+              <Text style={styles.statValue}>2</Text>
+              <Text style={styles.statLabel}>Badges</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Ionicons name="checkmark-circle-outline" size={24} color="#10b981" />
+              <Text style={styles.statValue}>{percentComplete}%</Text>
+              <Text style={styles.statLabel}>Complete</Text>
+            </View>
           </View>
-        </View>
-      </Modal>
-      {/* Modal for viewing tasks of a period */}
-      <Modal
-        visible={!!selectedPeriod}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedPeriod(null)}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, minWidth: 300, maxWidth: 340, maxHeight: 500 }}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#4f46e5', textAlign: 'center' }}>
-              {selectedPeriod ? selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1) : ''} {i18n.t('tasks')}
-            </Text>
-            <FlatList
-              data={selectedPeriod ? quests[selectedPeriod] : []}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => {
-                const state = selectedPeriod ? questState[selectedPeriod]?.[item.id] : undefined;
-                let status = '';
-                if (item.isCounter) {
-                  status = (state?.count || 0) > 0 ? `Count: ${state?.count}` : 'Not done';
-                } else if (item.isInput) {
-                  status = state?.value ? `Input: ${state.value}` : 'Not done';
-                } else if (state?.checked) {
-                  status = 'Done';
-                } else if (state?.skipped) {
-                  status = 'Skipped';
-                } else {
-                  status = 'Not done';
-                }
-                return (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                    <Ionicons
-                      name={status === 'Done' ? 'checkmark-circle' : status === 'Skipped' ? 'close-circle' : 'ellipse-outline'}
-                      size={20}
-                      color={status === 'Done' ? '#10b981' : status === 'Skipped' ? '#f87171' : '#9ca3af'}
-                      style={{ marginRight: 10 }}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, color: '#22223b' }}>{item.text}</Text>
-                      <Text style={{ fontSize: 12, color: '#6b7280' }}>{status}</Text>
+
+          {/* Quests */}
+          {!allDone && (
+            <View style={styles.questsContainer}>
+              <CardStack
+                tasks={quests[activePeriod]}
+                questState={questState[activePeriod]}
+                onToggle={handleToggle}
+                onInput={handleInput}
+                onCounter={handleCounter}
+                onSkipTask={handleSkipTask}
+                currentTaskIndex={currentTaskIndices[activePeriod]}
+                setCurrentTaskIndex={idx => setCurrentTaskIndices(prev => ({ ...prev, [activePeriod]: idx }))}
+                isSessionSubmitted={!!submittedSessions[activePeriod]?.submitted}
+                period={activePeriod}
+                progressLabel={`${activePeriod.charAt(0).toUpperCase() + activePeriod.slice(1)} Quest`}
+                handleSessionSubmit={handleSessionSubmit}
+              />
+            </View>
+          )}
+          <View style={{ height: 40 }} />
+
+        </ScrollView>
+        {/* All Done Modal */}
+        <Modal
+          visible={showAllDoneModal}
+          transparent
+          animationType="fade"
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 32, alignItems: 'center', maxWidth: 320 }}>
+              <Ionicons name="trophy" size={64} color="#f59e0b" style={{ marginBottom: 16 }} />
+              <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#4f46e5', textAlign: 'center', marginBottom: 12 }}>
+                All quests done for today!
+              </Text>
+              <Text style={{ fontSize: 18, color: '#22223b', textAlign: 'center', marginBottom: 8 }}>
+                Come back tomorrow and keep winning and keep rising.
+              </Text>
+              <Text style={{ fontSize: 18, color: '#22223b', textAlign: 'center', fontWeight: 'bold', marginBottom: 24 }}>
+                Never give up!!
+              </Text>
+              <TouchableOpacity
+                style={{ backgroundColor: '#4f46e5', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32 }}
+                onPress={() => setShowAllDoneModal(false)}
+              >
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Back to App</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+        {/* Modal for viewing tasks of a period */}
+        <Modal
+          visible={!!selectedPeriod}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setSelectedPeriod(null)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, minWidth: 300, maxWidth: 340, maxHeight: 500 }}>
+              <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#4f46e5', textAlign: 'center' }}>
+                {selectedPeriod ? selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1) : ''} {i18n.t('tasks')}
+              </Text>
+              <FlatList
+                data={selectedPeriod ? quests[selectedPeriod] : []}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => {
+                  const state = selectedPeriod ? questState[selectedPeriod]?.[item.id] : undefined;
+                  let status = '';
+                  if (item.isCounter) {
+                    status = (state?.count || 0) > 0 ? `Count: ${state?.count}` : 'Not done';
+                  } else if (item.isInput) {
+                    status = state?.value ? `Input: ${state.value}` : 'Not done';
+                  } else if (state?.checked) {
+                    status = 'Done';
+                  } else if (state?.skipped) {
+                    status = 'Skipped';
+                  } else {
+                    status = 'Not done';
+                  }
+                  return (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                      <Ionicons
+                        name={status === 'Done' ? 'checkmark-circle' : status === 'Skipped' ? 'close-circle' : 'ellipse-outline'}
+                        size={20}
+                        color={status === 'Done' ? '#10b981' : status === 'Skipped' ? '#f87171' : '#9ca3af'}
+                        style={{ marginRight: 10 }}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 15, color: '#22223b' }}>{item.text}</Text>
+                        <Text style={{ fontSize: 12, color: '#6b7280' }}>{status}</Text>
+                      </View>
                     </View>
-                  </View>
-                );
-              }}
-              ListEmptyComponent={<Text style={{ color: '#9ca3af', textAlign: 'center' }}>No tasks found.</Text>}
-              style={{ marginBottom: 16 }}
-            />
-            <TouchableOpacity
-              style={{ backgroundColor: '#4f46e5', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 24, alignSelf: 'center' }}
-              onPress={() => setSelectedPeriod(null)}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{i18n.t('close')}</Text>
-            </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={<Text style={{ color: '#9ca3af', textAlign: 'center' }}>No tasks found.</Text>}
+                style={{ marginBottom: 16 }}
+              />
+              <TouchableOpacity
+                style={{ backgroundColor: '#4f46e5', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 24, alignSelf: 'center' }}
+                onPress={() => setSelectedPeriod(null)}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{i18n.t('close')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </KeyboardAvoidingView>
+        </Modal>
+      </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
   },
   header: {
     flexDirection: "row",
