@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { View, ActivityIndicator, Text, StyleSheet, LogBox } from 'react-native';
 import ProfileSetupScreen from './app/screens/profile-creation/ProfileSetupScreen';
 import { QuestProvider } from './app/QuestContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 const Stack = createNativeStackNavigator();
 const InsideStack = createNativeStackNavigator();
 
@@ -130,10 +131,12 @@ LogBox.ignoreLogs([
 
 export default function App() {
   return (
-    <AuthProvider>
-      <QuestProvider>
-        <AppContent />
-      </QuestProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <QuestProvider>
+          <AppContent />
+        </QuestProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }

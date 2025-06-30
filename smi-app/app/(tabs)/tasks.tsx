@@ -13,7 +13,10 @@ import {
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { LinearGradient } from "expo-linear-gradient"
-import { useQuest } from "../QuestContext"
+import { useQuest, QuestPeriod, QuestState } from "../QuestContext"
+import { useLanguage } from '../../contexts/LanguageContext'
+import i18n from '../../i18n'
+import { Picker } from '@react-native-picker/picker'
 
 type Task = {
   id: string
@@ -27,55 +30,56 @@ type Task = {
   isChecklistCount?: boolean
 }
 
-type QuestPeriod = "coach"
-
-type QuestState = {
-  [key in QuestPeriod]: {
-    [taskId: string]: {
-      checked?: boolean
-      count?: number
-      value?: string
-    }
-  }
-}
-
 const initialTasks: Task[] = [
   {
     id: "1",
-    text: "Complete dribbling drills (30 mins)",
+    text: "task_coach_1",
     points: 10,
   },
   {
     id: "2",
-    text: "Watch match analysis and take notes",
+    text: "task_coach_2",
     points: 15,
   },
   {
     id: "3",
-    text: "Practice free kicks (20 attempts)",
+    text: "task_coach_3",
     points: 20,
     isCounter: true,
   },
   {
     id: "4",
-    text: "Reflection on today's training session",
+    text: "task_coach_4",
     points: 10,
     isInput: true,
   },
 ]
 
+// Required keys for i18n.ts:
+// task_coach_1: "Complete dribbling drills (30 mins)",
+// task_coach_2: "Watch match analysis and take notes",
+// task_coach_3: "Practice free kicks (20 attempts)",
+// task_coach_4: "Reflection on today's training session",
+// Marathi:
+// task_coach_1: "ड्रिब्लिंग सराव पूर्ण करा (३० मिनिटे)",
+// task_coach_2: "सामना विश्लेषण पहा आणि नोंदी घ्या",
+// task_coach_3: "फ्री किक्सचा सराव करा (२० प्रयत्न)",
+// task_coach_4: "आजच्या प्रशिक्षण सत्रावर विचार करा",
+
 export default function TasksScreen() {
   const [questState, setQuestState] = useState<QuestState>({ coach: {} })
   const [isDayComplete, setIsDayComplete] = useState(false)
   const { setQuestState: setCtxQuestState } = useQuest()
+  const { language, setLanguage } = useLanguage()
 
   // Initialize quest state
   useEffect(() => {
-    const initialState: QuestState = { coach: {} }
+    const initialState: QuestState = { coach: {} };
+    initialState.coach = {}; // Ensure it's defined
     initialTasks.forEach((task) => {
-      initialState.coach[task.id] = task.isCounter ? { count: 0 } : task.isInput ? { value: "" } : { checked: false }
-    })
-    setQuestState(initialState)
+      initialState.coach![task.id] = task.isCounter ? { count: 0 } : task.isInput ? { value: "" } : { checked: false };
+    });
+    setQuestState(initialState);
   }, [])
 
   // Sync with context
@@ -89,7 +93,7 @@ export default function TasksScreen() {
   const totalTasks = initialTasks.length
 
   initialTasks.forEach((task) => {
-    const state = questState.coach[task.id]
+    const state = questState.coach?.[task.id] || {}
     if (task.isCounter) {
       if ((state?.count || 0) > 0) {
         completedTasks++
@@ -163,7 +167,17 @@ export default function TasksScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Tasks</Text>
+          <Text style={styles.headerTitle}>{i18n.t('my_tasks')}</Text>
+          <View style={styles.languageContainer}>
+            <Picker
+              selectedValue={language}
+              style={{ width: 120, height: 50, color: '#4f46e5' }}
+              onValueChange={setLanguage}
+            >
+              <Picker.Item label="English" value="en" />
+              <Picker.Item label="मराठी" value="mr" />
+            </Picker>
+          </View>
           <View style={styles.headerPoints}>
             <Ionicons name="star" size={16} color="#f59e0b" />
             <Text style={styles.headerPointsText}>{totalPoints}</Text>
@@ -173,17 +187,17 @@ export default function TasksScreen() {
         {/* Tasks Card */}
         <LinearGradient colors={["#6d28d9", "#4f46e5"]} style={styles.journeyCard}>
           <View style={styles.journeyHeader}>
-            <Text style={styles.journeyTitle}>Coach's Assignments</Text>
+            <Text style={styles.journeyTitle}>{i18n.t('coach_assignments')}</Text>
             <View>
               <Text style={styles.journeyPoints}>{totalPoints}</Text>
-              <Text style={styles.journeyPointsLabel}>Total Points</Text>
+              <Text style={styles.journeyPointsLabel}>{i18n.t('total_points')}</Text>
             </View>
           </View>
 
-          <Text style={styles.journeySubtitle}>Your personalized tasks from the Coach</Text>
+          <Text style={styles.journeySubtitle}>{i18n.t('coach_tasks_subtitle')}</Text>
 
           <View style={styles.progressContainer}>
-            <Text style={styles.progressLabel}>Task Progress</Text>
+            <Text style={styles.progressLabel}>{i18n.t('task_progress')}</Text>
              <Text style={styles.progressPercentage}>{percentComplete}%</Text>
           </View>
 
@@ -207,8 +221,8 @@ export default function TasksScreen() {
                   <Ionicons name="clipboard-outline" size={20} color="#7c3aed" />
                 </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.questTitle}>Coach's Assignments</Text>
-                <Text style={styles.questPhrase}>"Complete these tasks assigned by your coach"</Text>
+                <Text style={styles.questTitle}>{i18n.t('coach_assignments')}</Text>
+                <Text style={styles.questPhrase}>"{i18n.t('complete_these_tasks_assigned_by_your_coach')}"</Text>
               </View>
               <Text style={styles.questProgressText}>
                 {completedTasks}/{initialTasks.length}
@@ -217,7 +231,7 @@ export default function TasksScreen() {
 
             <View style={styles.questTasks}>
               {initialTasks.map((task) => {
-                const state = questState.coach[task.id] || {}
+                const state = questState.coach?.[task.id] || {}
                 const isComplete = task.isCounter
                   ? (state.count || 0) > 0
                   : task.isInput
@@ -233,7 +247,7 @@ export default function TasksScreen() {
                       {isComplete && <Ionicons name="checkmark" size={16} color="#ffffff" />}
                     </TouchableOpacity>
                     <View style={styles.taskInfo}>
-                      <Text style={[styles.taskText, isComplete && styles.taskTextCompleted]}>{task.text}</Text>
+                      <Text style={[styles.taskText, isComplete && styles.taskTextCompleted]}>{i18n.t(task.text)}</Text>
 
                       {task.isCounter && (
                         <View style={styles.counterContainer}>
@@ -260,7 +274,7 @@ export default function TasksScreen() {
                           style={[styles.input, isComplete && styles.inputCompleted]}
                           value={state.value || ""}
                           onChangeText={(text: string) => !isDayComplete && handleInput("coach", task.id, text)}
-                          placeholder="Type your response..."
+                          placeholder={i18n.t('type_your_response')}
                           editable={!isDayComplete}
                           multiline
                         />
@@ -282,7 +296,7 @@ export default function TasksScreen() {
                 disabled={isDayComplete}
               >
                 <Ionicons name="refresh" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
-                <Text style={[styles.clearButtonText, isDayComplete && { color: "#9ca3af" }]}>Clear All</Text>
+                <Text style={[styles.clearButtonText, isDayComplete && { color: "#9ca3af" }]}>{i18n.t('clear_all')}</Text>
               </TouchableOpacity>
 
               <LinearGradient 
@@ -292,11 +306,11 @@ export default function TasksScreen() {
                 end={{ x: 1, y: 0 }}
               >
                 <TouchableOpacity
-                  onPress={() => alert("Tasks submitted!")}
+                  onPress={() => alert(i18n.t('tasks_submitted'))}
                   disabled={isDayComplete}
                   style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
                 >
-                  <Text style={styles.submitButtonText}>{isDayComplete ? "Completed" : "Submit"}</Text>
+                  <Text style={styles.submitButtonText}>{isDayComplete ? i18n.t('completed') : i18n.t('submit')}</Text>
                 </TouchableOpacity>
               </LinearGradient>
               </View>
@@ -325,6 +339,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
+  },
+  languageContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   headerPoints: {
     flexDirection: "row",

@@ -48,6 +48,21 @@ const en = {
   task_daily_6: 'No bf/gf? say "My focus is career now, so I will not talk"',
   task_daily_7: "No addictions? – porn, cigarette, tobacco, etc.",
   task_daily_8: 'No talking to area friends? say "My focus is career now, so I will not talk"',
+  my_tasks: "My Tasks",
+  coach_assignments: "Coach's Assignments",
+  coach_tasks_subtitle: "Your personalized tasks from the Coach",
+  task_progress: "Task Progress",
+  total_points: "Total Points",
+  complete_these_tasks_assigned_by_your_coach: "Complete these tasks assigned by your coach",
+  task_coach_1: "Complete dribbling drills (30 mins)",
+  task_coach_2: "Watch match analysis and take notes",
+  task_coach_3: "Practice free kicks (20 attempts)",
+  task_coach_4: "Reflection on today's training session",
+  type_your_response: "Type your response...",
+  clear_all: "Clear All",
+  tasks_submitted: "Tasks submitted!",
+  completed: "Completed",
+  submit: "Submit"
 };
 
 const mr = {
@@ -96,6 +111,21 @@ const mr = {
   task_daily_6: 'कोणताही bf/gf नाही? "माझा फोकस करिअरवर आहे, त्यामुळे मी बोलणार नाही" असे म्हटले का?',
   task_daily_7: "कोणतेही व्यसन नाही? – पॉर्न, सिगारेट, तंबाखू, इ.",
   task_daily_8: 'एरिया मित्रांशी बोललो नाही? "माझा फोकस करिअरवर आहे, त्यामुळे मी बोलणार नाही" असे म्हटले का?',
+  my_tasks: "माझी कामे",
+  coach_assignments: "प्रशिक्षकाचे कार्य",
+  coach_tasks_subtitle: "प्रशिक्षकाकडून मिळालेली वैयक्तिक कामे",
+  task_progress: "कामाची प्रगती",
+  total_points: "एकूण गुण",
+  complete_these_tasks_assigned_by_your_coach: "प्रशिक्षकाने दिलेली ही कामे पूर्ण करा",
+  task_coach_1: "ड्रिब्लिंग सराव पूर्ण करा (३० मिनिटे)",
+  task_coach_2: "सामना विश्लेषण पहा आणि नोंदी घ्या",
+  task_coach_3: "फ्री किक्सचा सराव करा (२० प्रयत्न)",
+  task_coach_4: "आजच्या प्रशिक्षण सत्रावर विचार करा",
+  type_your_response: "तुमचे उत्तर टाइप करा...",
+  clear_all: "सर्व साफ करा",
+  tasks_submitted: "कामे सबमिट केली!",
+  completed: "पूर्ण झाले",
+  submit: "सबमिट करा"
 };
 
 // Create i18n instance

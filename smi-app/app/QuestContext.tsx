@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 
-export type QuestPeriod = 'morning' | 'afternoon' | 'evening' | 'workout' | 'daily';
+export type QuestPeriod = 'morning' | 'afternoon' | 'evening' | 'workout' | 'daily' | 'coach';
 
 type TaskState = {
   checked?: boolean;
@@ -8,7 +8,7 @@ type TaskState = {
   value?: string;
 };
 
-type QuestState = {
+export type QuestState = {
   [key in QuestPeriod]?: {
     [taskId: string]: TaskState;
   };
