@@ -17,6 +17,7 @@ import {
   Image,
   FlatList,
   ImageBackground,
+  ActivityIndicator,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { LinearGradient } from "expo-linear-gradient"
@@ -28,6 +29,7 @@ import { FIRESTORE_DB } from '../../FirebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import i18n, { setLanguage } from '../../i18n';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 type Task = {
   id: string
@@ -233,7 +235,8 @@ function CardStack({
     period,
     progressLabel,
     handleSessionSubmit,
-}: CardStackProps) {
+    isSaving,
+}: CardStackProps & { isSaving?: boolean }) {
   const totalTasks = tasks.length;
   const currentTask = tasks[currentTaskIndex];
   const nextTask = currentTaskIndex < totalTasks - 1 ? tasks[currentTaskIndex + 1] : null;
@@ -365,14 +368,14 @@ function CardStack({
             <TouchableOpacity
               style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginRight: 8 }}
               onPress={handleSkip}
-              disabled={isTaskDone || isSessionSubmitted}
+              disabled={isTaskDone || isSessionSubmitted || isSaving}
             >
               <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>{i18n.t('skip')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginLeft: 8 }}
               onPress={handleDone}
-              disabled={isTaskDone || isSessionSubmitted}
+              disabled={isTaskDone || isSessionSubmitted || isSaving}
             >
               <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>{i18n.t('done')}</Text>
             </TouchableOpacity>
@@ -767,11 +770,22 @@ function MagicalCard({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Add mascot motivational messages mapping
+const MASCOT_MESSAGES: Record<QuestPeriod, string> = {
+  morning: "Great start! Keep up the energy!",
+  workout: "Awesome workout! You're getting stronger!",
+  afternoon: "Well done! Keep your focus sharp!",
+  evening: "Evening tasks done! Time to relax and reflect.",
+  daily: "You did it! Another day of progress!",
+};
+
 export default function JourneyScreen() {
   const [quests] = useState<Quests>(initialQuests)
   const [questState, setQuestState] = useState<QuestState>(() => getInitialQuestState(initialQuests))
   const [submittedSessions, setSubmittedSessions] = useState<Record<string, SessionData>>({});
   const [isDayComplete, setIsDayComplete] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<QuestPeriod | null>(null);
   
   // Per-period current task index state
   const [currentTaskIndices, setCurrentTaskIndices] = useState<Record<QuestPeriod, number>>({
@@ -944,6 +958,8 @@ export default function JourneyScreen() {
     }, 0);
   };
 
+  const [lastCompletedPeriod, setLastCompletedPeriod] = useState<QuestPeriod | null>(null);
+
   const handleSessionSubmit = async (period: QuestPeriod) => {
     try {
       const score = calculateSessionScore(period);
@@ -980,6 +996,9 @@ export default function JourneyScreen() {
       if (scrollViewRef.current) {
         scrollViewRef.current.scrollTo({ y: 0, animated: true });
       }
+      
+      // Show mascot motivational message
+      setLastCompletedPeriod(period);
       
       // Log confirmation of next period
       setTimeout(() => {
@@ -1218,13 +1237,15 @@ export default function JourneyScreen() {
   }, [allDone]);
 
   const progressBarRef = useRef<{ spin: () => void } | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState<QuestPeriod | null>(null);
-  const [language, setLanguageState] = useState(i18n.locale || 'en');
+  const { language, setLanguage } = useLanguage();
 
-  const handleLanguageChange = (lang: string) => {
-    setLanguage(lang as 'en' | 'mr');
-    setLanguageState(lang);
-  };
+  // Auto-hide mascot motivational message after 3 seconds
+  useEffect(() => {
+    if (lastCompletedPeriod) {
+      const timer = setTimeout(() => setLastCompletedPeriod(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastCompletedPeriod]);
 
   return (
     <ImageBackground
@@ -1237,6 +1258,31 @@ export default function JourneyScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
       >
+        {/* Mascot Motivational Speech Bubble */}
+        {lastCompletedPeriod && (
+          <View style={styles.mascotSpeechBubble}>
+            <Text style={styles.mascotSpeechText}>
+              {MASCOT_MESSAGES[lastCompletedPeriod]}
+            </Text>
+            <TouchableOpacity onPress={() => setLastCompletedPeriod(null)}>
+              <Text style={styles.mascotSpeechClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {/* Saving Spinner Overlay */}
+        {isSaving && (
+          <View style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.25)',
+            zIndex: 100,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <ActivityIndicator size="large" color="#4f46e5" />
+            <Text style={{ color: '#4f46e5', marginTop: 12, fontWeight: 'bold', fontSize: 18 }}>Saving...</Text>
+          </View>
+        )}
         <ScrollView
           ref={scrollViewRef}
           style={styles.container}
@@ -1251,7 +1297,7 @@ export default function JourneyScreen() {
               <Picker
                 selectedValue={language}
                 style={styles.languagePicker}
-                onValueChange={handleLanguageChange}
+                onValueChange={setLanguage}
               >
                 <Picker.Item label="English" value="en" />
                 <Picker.Item label="मराठी" value="mr" />
@@ -1311,16 +1357,25 @@ export default function JourneyScreen() {
               <CardStack
                 tasks={quests[activePeriod]}
                 questState={questState[activePeriod]}
-                onToggle={handleToggle}
+                onToggle={async (period, taskId) => {
+                  setIsSaving(true);
+                  await handleToggle(period, taskId);
+                  setIsSaving(false);
+                }}
                 onInput={handleInput}
                 onCounter={handleCounter}
-                onSkipTask={handleSkipTask}
+                onSkipTask={async (period, taskId) => {
+                  setIsSaving(true);
+                  await handleSkipTask(period, taskId);
+                  setIsSaving(false);
+                }}
                 currentTaskIndex={currentTaskIndices[activePeriod]}
                 setCurrentTaskIndex={idx => setCurrentTaskIndices(prev => ({ ...prev, [activePeriod]: idx }))}
                 isSessionSubmitted={!!submittedSessions[activePeriod]?.submitted}
                 period={activePeriod}
                 progressLabel={`${activePeriod.charAt(0).toUpperCase() + activePeriod.slice(1)} Quest`}
                 handleSessionSubmit={handleSessionSubmit}
+                isSaving={isSaving}
               />
             </View>
           )}
@@ -1392,7 +1447,7 @@ export default function JourneyScreen() {
                         style={{ marginRight: 10 }}
                       />
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 15, color: '#22223b' }}>{item.text}</Text>
+                        <Text style={{ fontSize: 15, color: '#22223b' }}>{i18n.t(item.text)}</Text>
                         <Text style={{ fontSize: 12, color: '#6b7280' }}>{status}</Text>
                       </View>
                     </View>
@@ -1805,5 +1860,33 @@ const styles = StyleSheet.create({
     width: 120,
     height: 50,
     color: '#4f46e5',
+  },
+  mascotSpeechBubble: {
+    position: 'absolute',
+    top: 160, // adjust as needed to appear above mascot
+    left: 40, // adjust as needed
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 200,
+    minWidth: 200,
+    maxWidth: 260,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mascotSpeechText: {
+    color: '#4f46e5',
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  mascotSpeechClose: {
+    marginLeft: 12,
+    fontSize: 18,
+    color: '#aaa',
   },
 })
