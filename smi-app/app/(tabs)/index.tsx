@@ -30,6 +30,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import i18n, { setLanguage } from '../../i18n';
 import { useLanguage } from '../../contexts/LanguageContext';
+import Voice from '@react-native-voice/voice';
+
 
 type Task = {
   id: string
@@ -222,6 +224,72 @@ type CardStackProps = {
   handleSessionSubmit: (period: QuestPeriod) => void;
 };
 
+function VoiceInputField({ value, onChangeText, ...props }: { value: string; onChangeText: (text: string) => void; [key: string]: any }) {
+  const [isListening, setIsListening] = useState(false);
+
+  useEffect(() => {
+    Voice.onSpeechResults = (e) => {
+      if (e.value && e.value.length > 0) {
+        onChangeText(e.value[0]);
+      }
+      setIsListening(false);
+    };
+    Voice.onSpeechError = (e) => {
+      console.error('Speech recognition error:', e);
+      setIsListening(false);
+    };
+    Voice.onSpeechStart = () => setIsListening(true);
+    Voice.onSpeechEnd = () => setIsListening(false);
+
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners);
+    };
+  }, []);
+
+  const startListening = async () => {
+    setIsListening(true);
+    try {
+      await Voice.start('en-US');
+    } catch (e) {
+      console.error('Voice recognition error:', e);
+      setIsListening(false);
+    }
+  };
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+      <TextInput
+        value={value}
+        onChangeText={(text: string) => onChangeText(text)}
+        {...props}
+        style={[props.style, { flex: 1 }]}
+      />
+      <TouchableOpacity 
+        onPress={startListening} 
+        disabled={isListening} 
+        style={{ 
+          marginLeft: 8, 
+          marginTop: 8,
+          padding: 8,
+          borderRadius: 20,
+          backgroundColor: isListening ? '#ef4444' : '#f3f4f6',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 2,
+        }}
+      >
+        <Ionicons 
+          name={isListening ? "mic" : "mic-outline"} 
+          size={24} 
+          color={isListening ? '#ffffff' : '#6b7280'} 
+        />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function CardStack({
     tasks,
     questState,
@@ -326,11 +394,11 @@ function CardStack({
                 maxLength={currentTask.max ? String(currentTask.max).length : 4}
               />
             ) : (
-              <TextInput
+              <VoiceInputField
                 style={[styles.textInput, { marginTop: 12, marginBottom: 8, minHeight: 60, maxHeight: 120, textAlignVertical: 'top' }]}
                 value={taskState.value || ''}
                 onChangeText={text => onInput(period, currentTask.id, text)}
-                placeholder={"Describe the situation..."}
+                placeholder={i18n.t('describe_situation')}
                 editable={!isTaskDone && !isSessionSubmitted}
                 multiline
                 numberOfLines={4}

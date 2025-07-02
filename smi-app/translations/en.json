@@ -9,5 +9,12 @@
     "clear_all": "Clear All",
     "tasks_submitted": "Tasks submitted!",
     "completed": "Completed",
-    "submit": "Submit"
+    "submit": "Submit",
+    "describe_situation": "Describe the situation...",
+    "welcome": "Welcome",
+    "points": "Points",
+    "tasks": "Tasks",
+    "close": "Close",
+    "skip": "Skip",
+    "done": "Done"
   }
