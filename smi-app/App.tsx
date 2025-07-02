@@ -7,11 +7,20 @@ import { View, ActivityIndicator, Text, StyleSheet, LogBox } from 'react-native'
 import ProfileSetupScreen from './app/screens/profile-creation/ProfileSetupScreen';
 import { QuestProvider } from './app/QuestContext';
 import { LanguageProvider } from './contexts/LanguageContext';
+import AdminDashboard from './app/admin';
+import CoachDashboard from './app/coach';
+import UserDetailsScreen from './app/admin/UserDetailsScreen';
+import SessionDetailsScreen from './app/admin/SessionDetailsScreen';
+import SessionEntryScreen from './app/admin/SessionEntryScreen';
 const Stack = createNativeStackNavigator();
 const InsideStack = createNativeStackNavigator();
 
+
 // Import the tabs layout
 import TabLayout from './app/(tabs)/_layout';
+
+const ADMIN_EMAILS = ['admin1@smi.com', 'admin2@smi.com'];
+const COACH_EMAILS = ['coach1@smi.com', 'coach2@smi.com']; 
 
 function InsideLayout() {
   console.log('InsideLayout - Rendering TabLayout');
@@ -66,6 +75,18 @@ function AppContent() {
             component={Login}
             options={{ headerShown: false }}
           />
+        ) : ADMIN_EMAILS.includes(user.email || '') ? (
+          <Stack.Screen
+            name="AdminDashboard"
+            component={AdminDashboard}
+            options={{ headerShown: false }}
+          />
+        ) : COACH_EMAILS.includes(user.email || '') ? (
+          <Stack.Screen
+            name="CoachDashboard"
+            component={CoachDashboard}
+            options={{ headerShown: false }}
+          />
         ) : !hasProfile ? (
           <Stack.Screen
             name="ProfileSetup"
@@ -89,6 +110,21 @@ function AppContent() {
             options={{ headerShown: false }}
           />
         )}
+        <Stack.Screen
+          name="UserDetails"
+          component={UserDetailsScreen}
+          options={{ headerShown: true, title: 'User Details' }}
+        />
+        <Stack.Screen
+          name="SessionDetails"
+          component={SessionDetailsScreen}
+          options={{ headerShown: true, title: 'Session Details' }}
+        />
+        <Stack.Screen
+          name="SessionEntry"
+          component={SessionEntryScreen}
+          options={{ headerShown: true, title: 'Session Entry' }}
+        />
       </Stack.Navigator>
       <Toast />
     </NavigationContainer>

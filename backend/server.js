@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import Mood from './models/Mood.js';
 import moodRoutes from './routes/moodModule.js';
 import DailyActivity from './models/DailyActivity.js';
+import contentAssessmentRoutes from './routes/contentAssessment.js';
 
 dotenv.config();
 const app = express();
@@ -19,6 +20,7 @@ app.use(cors({
 app.use(express.json());
 
 app.use('/api/module/mood', moodRoutes);
+app.use('/api/content-assessment', contentAssessmentRoutes);
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)

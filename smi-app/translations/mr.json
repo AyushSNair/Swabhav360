@@ -10,5 +10,12 @@
     "clear_all": "सर्व साफ करा",
     "tasks_submitted": "कामे सबमिट केली!",
     "completed": "पूर्ण झाले",
-    "submit": "सबमिट करा"
+    "submit": "सबमिट करा",
+    "describe_situation": "परिस्थिती वर्णन करा...",
+    "welcome": "स्वागत आहे",
+    "points": "गुण",
+    "tasks": "कामे",
+    "close": "बंद करा",
+    "skip": "वगळा",
+    "done": "झाले"
   }
