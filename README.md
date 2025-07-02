@@ -29,9 +29,11 @@ Frontend: React Native (Cross-platform: Android & iOS)
 
 Backend: Node.js + Express.js
 
-Database: MongoDB (Schema-flexible for evolving needs)
+Database: Firebase Firestore (Real-time, scalable NoSQL database)
 
-Cloud Hosting: AWS / Google Cloud Platform
+Cloud Hosting: Google Cloud Platform / Firebase
+
+Authentication: Firebase Auth
 
 Real-time Communication: Socket.io
 
