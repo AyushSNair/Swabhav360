@@ -25,7 +25,7 @@ app.use('/api/content-assessment', contentAssessmentRoutes);
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
-    console.log('✅ MongoDB connected');
+    console.log('✅ Database connected');
 
     // Drop old index if it exists (ignore if not found)
     try {
