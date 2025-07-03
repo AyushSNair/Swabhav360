@@ -11,6 +11,7 @@ import {
   RefreshControl,
   PanGestureHandler,
   State,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,29 @@ import { useQuest } from '../QuestContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
+
+// Web-compatible gradient wrapper
+const GradientView = ({ colors, style, children, start, end, ...props }: {
+  colors: string[];
+  style?: any;
+  children?: React.ReactNode;
+  start?: { x: number; y: number };
+  end?: { x: number; y: number };
+  [key: string]: any;
+}) => {
+  if (Platform.OS === 'web') {
+    const gradientStyle = {
+      background: `linear-gradient(135deg, ${colors.join(', ')})`,
+      ...style,
+    };
+    return <View style={gradientStyle} {...props}>{children}</View>;
+  }
+  return (
+    <LinearGradient colors={colors} style={style} start={start} end={end} {...props}>
+      {children}
+    </LinearGradient>
+  );
+};
 
 // Animated Progress Ring Component
 const ProgressRing = ({ 
@@ -46,7 +70,7 @@ const ProgressRing = ({
   return (
     <View style={[styles.progressRing, { width: size, height: size }]}>
       <Animated.View style={styles.progressRingContainer}>
-        <LinearGradient
+        <GradientView
           colors={colors}
           style={[styles.progressRingGradient, { width: size, height: size, borderRadius: size / 2 }]}
           start={{ x: 0, y: 0 }}
@@ -73,14 +97,14 @@ const GlassCard = ({ children, style = {}, gradient = ['rgba(255,255,255,0.1)', 
   gradient?: string[];
 }) => {
   return (
-    <LinearGradient
+    <GradientView
       colors={gradient}
       style={[styles.glassCard, style]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
       {children}
-    </LinearGradient>
+    </GradientView>
   );
 };
 
@@ -138,77 +162,85 @@ const TaskCard = ({
     }
   };
 
+  const TaskCardContent = (
+    <Animated.View
+      style={[
+        styles.taskCardContainer,
+        {
+          transform: [
+            { scale: scaleAnim },
+            { translateX: translateX }
+          ],
+        },
+      ]}
+    >
+      <GlassCard style={[
+        styles.taskCard,
+        task.completed && styles.taskCardCompleted,
+        isCompleting && styles.taskCardCompleting
+      ]}>
+        <View style={styles.taskContent}>
+          <View style={[styles.taskIcon, task.completed && styles.taskIconCompleted]}>
+            <Ionicons 
+              name={task.completed ? 'checkmark' : task.icon} 
+              size={24} 
+              color={task.completed ? '#10b981' : '#6366f1'} 
+            />
+          </View>
+          <View style={styles.taskDetails}>
+            <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
+              {task.title}
+            </Text>
+            <Text style={styles.taskDescription}>{task.description}</Text>
+          </View>
+          <View style={styles.taskPoints}>
+            <GradientView
+              colors={['#f59e0b', '#f97316']}
+              style={styles.pointsBadge}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.pointsText}>+{task.points}</Text>
+            </GradientView>
+          </View>
+        </View>
+        
+        {!task.completed && (
+          <TouchableOpacity 
+            style={styles.taskCompleteButton}
+            onPress={handleComplete}
+            activeOpacity={0.8}
+          >
+            <GradientView
+              colors={['#10b981', '#059669']}
+              style={styles.completeButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="checkmark" size={20} color="white" />
+            </GradientView>
+          </TouchableOpacity>
+        )}
+        
+        {isCompleting && (
+          <View style={styles.completionAnimation}>
+            <Animated.View style={styles.rippleEffect} />
+          </View>
+        )}
+      </GlassCard>
+    </Animated.View>
+  );
+
+  if (Platform.OS === 'web') {
+    return TaskCardContent;
+  }
+
   return (
     <PanGestureHandler
       onGestureEvent={onGestureEvent}
       onHandlerStateChange={onHandlerStateChange}
     >
-      <Animated.View
-        style={[
-          styles.taskCardContainer,
-          {
-            transform: [
-              { scale: scaleAnim },
-              { translateX: translateX }
-            ],
-          },
-        ]}
-      >
-        <GlassCard style={[
-          styles.taskCard,
-          task.completed && styles.taskCardCompleted,
-          isCompleting && styles.taskCardCompleting
-        ]}>
-          <View style={styles.taskContent}>
-            <View style={[styles.taskIcon, task.completed && styles.taskIconCompleted]}>
-              <Ionicons 
-                name={task.completed ? 'checkmark' : task.icon} 
-                size={24} 
-                color={task.completed ? '#10b981' : '#6366f1'} 
-              />
-            </View>
-            <View style={styles.taskDetails}>
-              <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
-                {task.title}
-              </Text>
-              <Text style={styles.taskDescription}>{task.description}</Text>
-            </View>
-            <View style={styles.taskPoints}>
-              <LinearGradient
-                colors={['#f59e0b', '#f97316']}
-                style={styles.pointsBadge}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Text style={styles.pointsText}>+{task.points}</Text>
-              </LinearGradient>
-            </View>
-          </View>
-          
-          {!task.completed && (
-            <TouchableOpacity 
-              style={styles.taskCompleteButton}
-              onPress={handleComplete}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#10b981', '#059669']}
-                style={styles.completeButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Ionicons name="checkmark" size={20} color="white" />
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-          
-          {isCompleting && (
-            <View style={styles.completionAnimation}>
-              <Animated.View style={styles.rippleEffect} />
-            </View>
-          )}
-        </GlassCard>
-      </Animated.View>
+      {TaskCardContent}
     </PanGestureHandler>
   );
 };
@@ -328,7 +360,7 @@ export default function JourneyScreen() {
       
       {/* Animated Header */}
       <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
-        <LinearGradient
+        <GradientView
           colors={['rgba(99, 102, 241, 0.9)', 'rgba(139, 92, 246, 0.9)']}
           style={styles.headerGradient}
           start={{ x: 0, y: 0 }}
@@ -351,7 +383,7 @@ export default function JourneyScreen() {
         scrollEventThrottle={16}
       >
         {/* Hero Section with Gradient Background */}
-        <LinearGradient
+        <GradientView
           colors={['#6366f1', '#8b5cf6', '#ec4899']}
           style={styles.heroSection}
           start={{ x: 0, y: 0 }}
@@ -401,7 +433,7 @@ export default function JourneyScreen() {
               />
             </View>
           </View>
-        </LinearGradient>
+        </GradientView>
 
         {/* Tasks Section */}
         <View style={styles.tasksSection}>

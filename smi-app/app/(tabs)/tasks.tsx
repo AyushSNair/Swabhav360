@@ -23,6 +23,29 @@ import { Picker } from '@react-native-picker/picker'
 
 const { width } = Dimensions.get('window');
 
+// Web-compatible gradient wrapper
+const GradientView = ({ colors, style, children, start, end, ...props }: {
+  colors: string[];
+  style?: any;
+  children?: React.ReactNode;
+  start?: { x: number; y: number };
+  end?: { x: number; y: number };
+  [key: string]: any;
+}) => {
+  if (Platform.OS === 'web') {
+    const gradientStyle = {
+      background: `linear-gradient(135deg, ${colors.join(', ')})`,
+      ...style,
+    };
+    return <View style={gradientStyle} {...props}>{children}</View>;
+  }
+  return (
+    <LinearGradient colors={colors} style={style} start={start} end={end} {...props}>
+      {children}
+    </LinearGradient>
+  );
+};
+
 type Task = {
   id: string
   text: string
@@ -77,14 +100,14 @@ const GlassCard = ({ children, style = {}, gradient = ['rgba(255,255,255,0.1)', 
   gradient?: string[];
 }) => {
   return (
-    <LinearGradient
+    <GradientView
       colors={gradient}
       style={[styles.glassCard, style]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
       {children}
-    </LinearGradient>
+    </GradientView>
   );
 };
 
@@ -210,28 +233,28 @@ const TaskCard = ({
 
           {/* Points Badge */}
           <View style={styles.pointsContainer}>
-            <LinearGradient
+            <GradientView
               colors={['#f59e0b', '#f97316']}
               style={styles.pointsBadge}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <Text style={styles.pointsText}>+{task.points}</Text>
-            </LinearGradient>
+            </GradientView>
           </View>
         </TouchableOpacity>
 
         {/* Completion Indicator */}
         {isComplete && (
           <View style={styles.completionIndicator}>
-            <LinearGradient
+            <GradientView
               colors={['#10b981', '#059669']}
               style={styles.completionBadge}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <Ionicons name="checkmark" size={16} color="white" />
-            </LinearGradient>
+            </GradientView>
           </View>
         )}
       </GlassCard>
@@ -331,7 +354,7 @@ export default function TasksScreen() {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Header with Gradient */}
-      <LinearGradient
+      <GradientView
         colors={['#6366f1', '#8b5cf6']}
         style={styles.header}
         start={{ x: 0, y: 0 }}
@@ -357,7 +380,7 @@ export default function TasksScreen() {
 
           {/* Points Display */}
           <View style={styles.headerPoints}>
-            <LinearGradient
+            <GradientView
               colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
               style={styles.pointsDisplay}
               start={{ x: 0, y: 0 }}
@@ -365,7 +388,7 @@ export default function TasksScreen() {
             >
               <Ionicons name="star" size={16} color="#f59e0b" />
               <Text style={styles.pointsText}>{totalPoints}</Text>
-            </LinearGradient>
+            </GradientView>
           </View>
         </View>
 
@@ -384,7 +407,7 @@ export default function TasksScreen() {
 
           <View style={styles.progressBarContainer}>
             <View style={styles.progressBarBackground}>
-              <LinearGradient
+              <GradientView
                 colors={['#10b981', '#059669']}
                 style={[styles.progressBarFill, { width: `${percentComplete}%` }]}
                 start={{ x: 0, y: 0 }}
@@ -394,7 +417,7 @@ export default function TasksScreen() {
             <Text style={styles.progressPercentage}>{percentComplete}%</Text>
           </View>
         </GlassCard>
-      </LinearGradient>
+      </GradientView>
 
       {/* Tasks List */}
       <KeyboardAvoidingView
@@ -439,7 +462,7 @@ export default function TasksScreen() {
               onPress={() => alert(i18n.t('tasks_submitted'))}
               disabled={isDayComplete}
             >
-              <LinearGradient
+              <GradientView
                 colors={isDayComplete ? ['#6b7280', '#4b5563'] : ['#10b981', '#059669']}
                 style={styles.submitButtonGradient}
                 start={{ x: 0, y: 0 }}
@@ -453,7 +476,7 @@ export default function TasksScreen() {
                 <Text style={styles.submitButtonText}>
                   {isDayComplete ? i18n.t('completed') : i18n.t('submit')}
                 </Text>
-              </LinearGradient>
+              </GradientView>
             </TouchableOpacity>
           </View>
 
