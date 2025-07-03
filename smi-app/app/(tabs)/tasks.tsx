@@ -10,6 +10,9 @@ import {
   Platform,
   KeyboardAvoidingView,
   TextInput,
+  Animated,
+  Dimensions,
+  StatusBar,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { LinearGradient } from "expo-linear-gradient"
@@ -17,6 +20,8 @@ import { useQuest, QuestPeriod, QuestState } from "../QuestContext"
 import { useLanguage } from '../../contexts/LanguageContext'
 import i18n from '../../i18n'
 import { Picker } from '@react-native-picker/picker'
+
+const { width } = Dimensions.get('window');
 
 type Task = {
   id: string
@@ -28,6 +33,8 @@ type Task = {
   hasMedia?: boolean
   max?: number
   isChecklistCount?: boolean
+  icon?: string
+  category?: string
 }
 
 const initialTasks: Task[] = [
@@ -35,36 +42,202 @@ const initialTasks: Task[] = [
     id: "1",
     text: "task_coach_1",
     points: 10,
+    icon: "football-outline",
+    category: "sports"
   },
   {
     id: "2",
     text: "task_coach_2",
     points: 15,
+    icon: "eye-outline",
+    category: "analysis"
   },
   {
     id: "3",
     text: "task_coach_3",
     points: 20,
     isCounter: true,
+    icon: "target-outline",
+    category: "practice"
   },
   {
     id: "4",
     text: "task_coach_4",
     points: 10,
     isInput: true,
+    icon: "journal-outline",
+    category: "reflection"
   },
 ]
 
-// Required keys for i18n.ts:
-// task_coach_1: "Complete dribbling drills (30 mins)",
-// task_coach_2: "Watch match analysis and take notes",
-// task_coach_3: "Practice free kicks (20 attempts)",
-// task_coach_4: "Reflection on today's training session",
-// Marathi:
-// task_coach_1: "ड्रिब्लिंग सराव पूर्ण करा (३० मिनिटे)",
-// task_coach_2: "सामना विश्लेषण पहा आणि नोंदी घ्या",
-// task_coach_3: "फ्री किक्सचा सराव करा (२० प्रयत्न)",
-// task_coach_4: "आजच्या प्रशिक्षण सत्रावर विचार करा",
+// Glassmorphism Card Component
+const GlassCard = ({ children, style = {}, gradient = ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] }: {
+  children: React.ReactNode;
+  style?: any;
+  gradient?: string[];
+}) => {
+  return (
+    <LinearGradient
+      colors={gradient}
+      style={[styles.glassCard, style]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      {children}
+    </LinearGradient>
+  );
+};
+
+// Animated Task Card Component
+const TaskCard = ({ 
+  task, 
+  questState, 
+  onToggle, 
+  onInput, 
+  onCounter, 
+  isDayComplete 
+}: {
+  task: Task;
+  questState: any;
+  onToggle: (taskId: string) => void;
+  onInput: (taskId: string, text: string) => void;
+  onCounter: (taskId: string, amount: number) => void;
+  isDayComplete: boolean;
+}) => {
+  const state = questState.coach?.[task.id] || {};
+  const isComplete = task.isCounter
+    ? (state.count || 0) > 0
+    : task.isInput
+      ? (state.value || "").trim() !== ""
+      : state.checked;
+
+  const scaleAnim = new Animated.Value(1);
+
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    if (!isDayComplete && !task.isCounter && !task.isInput) {
+      onToggle(task.id);
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors = {
+      sports: '#ef4444',
+      analysis: '#3b82f6',
+      practice: '#f59e0b',
+      reflection: '#8b5cf6',
+    };
+    return colors[category as keyof typeof colors] || '#6366f1';
+  };
+
+  return (
+    <Animated.View style={[styles.taskCardContainer, { transform: [{ scale: scaleAnim }] }]}>
+      <GlassCard style={[
+        styles.taskCard,
+        isComplete && styles.taskCardCompleted
+      ]}>
+        <TouchableOpacity
+          style={styles.taskContent}
+          onPress={handlePress}
+          activeOpacity={0.8}
+          disabled={isDayComplete}
+        >
+          {/* Task Icon */}
+          <View style={[
+            styles.taskIcon,
+            { backgroundColor: getCategoryColor(task.category || 'sports') + '20' }
+          ]}>
+            <Ionicons 
+              name={isComplete ? 'checkmark-circle' : (task.icon as any) || 'ellipse-outline'} 
+              size={24} 
+              color={isComplete ? '#10b981' : getCategoryColor(task.category || 'sports')} 
+            />
+          </View>
+
+          {/* Task Details */}
+          <View style={styles.taskDetails}>
+            <Text style={[styles.taskTitle, isComplete && styles.taskTitleCompleted]}>
+              {i18n.t(task.text)}
+            </Text>
+            
+            {/* Counter Input */}
+            {task.isCounter && (
+              <View style={styles.counterContainer}>
+                <TouchableOpacity
+                  style={[styles.counterButton, styles.counterButtonMinus]}
+                  onPress={() => !isDayComplete && onCounter(task.id, -1)}
+                  disabled={isDayComplete}
+                >
+                  <Ionicons name="remove" size={16} color="white" />
+                </TouchableOpacity>
+                <Text style={styles.counterText}>{state.count || 0}</Text>
+                <TouchableOpacity
+                  style={[styles.counterButton, styles.counterButtonPlus]}
+                  onPress={() => !isDayComplete && onCounter(task.id, 1)}
+                  disabled={isDayComplete}
+                >
+                  <Ionicons name="add" size={16} color="white" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Text Input */}
+            {task.isInput && (
+              <TextInput
+                style={[styles.textInput, isComplete && styles.textInputCompleted]}
+                value={state.value || ""}
+                onChangeText={(text: string) => !isDayComplete && onInput(task.id, text)}
+                placeholder={i18n.t('type_your_response')}
+                placeholderTextColor="rgba(255,255,255,0.5)"
+                editable={!isDayComplete}
+                multiline
+                numberOfLines={3}
+              />
+            )}
+          </View>
+
+          {/* Points Badge */}
+          <View style={styles.pointsContainer}>
+            <LinearGradient
+              colors={['#f59e0b', '#f97316']}
+              style={styles.pointsBadge}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.pointsText}>+{task.points}</Text>
+            </LinearGradient>
+          </View>
+        </TouchableOpacity>
+
+        {/* Completion Indicator */}
+        {isComplete && (
+          <View style={styles.completionIndicator}>
+            <LinearGradient
+              colors={['#10b981', '#059669']}
+              style={styles.completionBadge}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="checkmark" size={16} color="white" />
+            </LinearGradient>
+          </View>
+        )}
+      </GlassCard>
+    </Animated.View>
+  );
+};
 
 export default function TasksScreen() {
   const [questState, setQuestState] = useState<QuestState>({ coach: {} })
@@ -154,449 +327,399 @@ export default function TasksScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
-    >
-      <ScrollView
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      {/* Header with Gradient */}
+      <LinearGradient
+        colors={['#6366f1', '#8b5cf6']}
+        style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        {/* Header */}
-        <View style={styles.header}>
+        <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>{i18n.t('my_tasks')}</Text>
+          
+          {/* Language Picker */}
           <View style={styles.languageContainer}>
-            <Picker
-              selectedValue={language}
-              style={{ width: 120, height: 50, color: '#4f46e5' }}
-              onValueChange={setLanguage}
-            >
-              <Picker.Item label="English" value="en" />
-              <Picker.Item label="मराठी" value="mr" />
-            </Picker>
+            <GlassCard style={styles.languagePicker}>
+              <Picker
+                selectedValue={language}
+                style={styles.picker}
+                onValueChange={setLanguage}
+                dropdownIconColor="white"
+              >
+                <Picker.Item label="EN" value="en" color="white" />
+                <Picker.Item label="मर" value="mr" color="white" />
+              </Picker>
+            </GlassCard>
           </View>
+
+          {/* Points Display */}
           <View style={styles.headerPoints}>
-            <Ionicons name="star" size={16} color="#f59e0b" />
-            <Text style={styles.headerPointsText}>{totalPoints}</Text>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+              style={styles.pointsDisplay}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="star" size={16} color="#f59e0b" />
+              <Text style={styles.pointsText}>{totalPoints}</Text>
+            </LinearGradient>
           </View>
         </View>
 
-        {/* Tasks Card */}
-        <LinearGradient colors={["#6d28d9", "#4f46e5"]} style={styles.journeyCard}>
-          <View style={styles.journeyHeader}>
-            <Text style={styles.journeyTitle}>{i18n.t('coach_assignments')}</Text>
+        {/* Progress Overview */}
+        <GlassCard style={styles.progressOverview}>
+          <View style={styles.progressHeader}>
             <View>
-              <Text style={styles.journeyPoints}>{totalPoints}</Text>
-              <Text style={styles.journeyPointsLabel}>{i18n.t('total_points')}</Text>
+              <Text style={styles.progressTitle}>{i18n.t('coach_assignments')}</Text>
+              <Text style={styles.progressSubtitle}>{i18n.t('coach_tasks_subtitle')}</Text>
+            </View>
+            <View style={styles.progressStats}>
+              <Text style={styles.progressPoints}>{totalPoints}</Text>
+              <Text style={styles.progressLabel}>{i18n.t('total_points')}</Text>
             </View>
           </View>
 
-          <Text style={styles.journeySubtitle}>{i18n.t('coach_tasks_subtitle')}</Text>
-
-          <View style={styles.progressContainer}>
-            <Text style={styles.progressLabel}>{i18n.t('task_progress')}</Text>
-             <Text style={styles.progressPercentage}>{percentComplete}%</Text>
-          </View>
-
-          <View style={styles.progressBar}>
-            <LinearGradient 
-              colors={["#6d28d9", "#4f46e5"]} 
-              style={[styles.progressFill, { width: `${percentComplete}%` }]} 
-              start={{ x: 0, y: 0 }} 
-              end={{ x: 1, y: 0 }}
-            />
-          </View>
-        </LinearGradient>
-
-
-        {/* Tasks List */}
-        <View style={styles.questsContainer}>
-          <View style={styles.questCard}>
-            <View style={[styles.questCardContent, isDayComplete && { opacity: 0.6 }, { borderLeftWidth: 4, borderLeftColor: "#8b5cf6" }]}>
-              <View style={styles.questHeader}>
-                <View style={[styles.questIconContainer, { backgroundColor: "#f5f3ff" }]}>
-                  <Ionicons name="clipboard-outline" size={20} color="#7c3aed" />
-                </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.questTitle}>{i18n.t('coach_assignments')}</Text>
-                <Text style={styles.questPhrase}>"{i18n.t('complete_these_tasks_assigned_by_your_coach')}"</Text>
-              </View>
-              <Text style={styles.questProgressText}>
-                {completedTasks}/{initialTasks.length}
-              </Text>
-            </View>
-
-            <View style={styles.questTasks}>
-              {initialTasks.map((task) => {
-                const state = questState.coach?.[task.id] || {}
-                const isComplete = task.isCounter
-                  ? (state.count || 0) > 0
-                  : task.isInput
-                    ? (state.value || "").trim() !== ""
-                    : state.checked
-
-                return (
-                  <View key={task.id} style={styles.taskItem}>
-                    <TouchableOpacity
-                      style={[styles.taskCheckbox, isComplete && styles.taskCheckboxChecked]}
-                      onPress={() => !isDayComplete && handleToggle("coach", task.id)}
-                    >
-                      {isComplete && <Ionicons name="checkmark" size={16} color="#ffffff" />}
-                    </TouchableOpacity>
-                    <View style={styles.taskInfo}>
-                      <Text style={[styles.taskText, isComplete && styles.taskTextCompleted]}>{i18n.t(task.text)}</Text>
-
-                      {task.isCounter && (
-                        <View style={styles.counterContainer}>
-                          <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => !isDayComplete && handleCounter("coach", task.id, -1)}
-                            disabled={isDayComplete}
-                          >
-                            <Ionicons name="remove" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
-                          </TouchableOpacity>
-                          <Text style={styles.counterText}>{state.count || 0}</Text>
-                          <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => !isDayComplete && handleCounter("coach", task.id, 1)}
-                            disabled={isDayComplete}
-                          >
-                            <Ionicons name="add" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
-                          </TouchableOpacity>
-                        </View>
-                      )}
-
-                      {task.isInput && (
-                        <TextInput
-                          style={[styles.input, isComplete && styles.inputCompleted]}
-                          value={state.value || ""}
-                          onChangeText={(text: string) => !isDayComplete && handleInput("coach", task.id, text)}
-                          placeholder={i18n.t('type_your_response')}
-                          editable={!isDayComplete}
-                          multiline
-                        />
-                      )}
-                    </View>
-
-                    <View style={styles.pointsContainer}>
-                      <Text style={[styles.pointsText, isComplete && styles.pointsTextCompleted]}>+{task.points}</Text>
-                    </View>
-                  </View>
-                )
-              })}
-            </View>
-
-            <View style={styles.questFooter}>
-              <TouchableOpacity
-                style={styles.clearButton}
-                onPress={() => !isDayComplete && handleClear("coach")}
-                disabled={isDayComplete}
-              >
-                <Ionicons name="refresh" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
-                <Text style={[styles.clearButtonText, isDayComplete && { color: "#9ca3af" }]}>{i18n.t('clear_all')}</Text>
-              </TouchableOpacity>
-
-              <LinearGradient 
-                colors={["#6d28d9", "#4f46e5"]}
-                style={[styles.submitButton, isDayComplete && { opacity: 0.6 }]}
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBarBackground}>
+              <LinearGradient
+                colors={['#10b981', '#059669']}
+                style={[styles.progressBarFill, { width: `${percentComplete}%` }]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-              >
-                <TouchableOpacity
-                  onPress={() => alert(i18n.t('tasks_submitted'))}
-                  disabled={isDayComplete}
-                  style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
-                >
-                  <Text style={styles.submitButtonText}>{isDayComplete ? i18n.t('completed') : i18n.t('submit')}</Text>
-                </TouchableOpacity>
-              </LinearGradient>
-              </View>
+              />
             </View>
+            <Text style={styles.progressPercentage}>{percentComplete}%</Text>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </GlassCard>
+      </LinearGradient>
+
+      {/* Tasks List */}
+      <KeyboardAvoidingView
+        style={styles.tasksContainer}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+      >
+        <ScrollView
+          style={styles.tasksList}
+          contentContainerStyle={styles.tasksContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          {initialTasks.map((task, index) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              questState={questState}
+              onToggle={(taskId) => handleToggle("coach", taskId)}
+              onInput={(taskId, text) => handleInput("coach", taskId, text)}
+              onCounter={(taskId, amount) => handleCounter("coach", taskId, amount)}
+              isDayComplete={isDayComplete}
+            />
+          ))}
+
+          {/* Action Buttons */}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => !isDayComplete && handleClear("coach")}
+              disabled={isDayComplete}
+            >
+              <GlassCard style={styles.clearButtonContent}>
+                <Ionicons name="refresh" size={20} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.clearButtonText}>{i18n.t('clear_all')}</Text>
+              </GlassCard>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={() => alert(i18n.t('tasks_submitted'))}
+              disabled={isDayComplete}
+            >
+              <LinearGradient
+                colors={isDayComplete ? ['#6b7280', '#4b5563'] : ['#10b981', '#059669']}
+                style={styles.submitButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons 
+                  name={isDayComplete ? "checkmark-circle" : "paper-plane"} 
+                  size={20} 
+                  color="white" 
+                />
+                <Text style={styles.submitButtonText}>
+                  {isDayComplete ? i18n.t('completed') : i18n.t('submit')}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#0f0f23",
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    paddingTop: 60,
+    paddingBottom: 20,
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 10,
-    backgroundColor: "#ffffff",
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  languageContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  headerPoints: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  headerPointsText: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  journeyCard: {
-    margin: 16,
-    marginTop: 8,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  journeyHeader: {
+  headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  journeyTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#ffffff",
-  },
-  journeyPoints: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    textAlign: "right",
-  },
-  journeyPointsLabel: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.8)",
-    textAlign: "right",
-  },
-  journeySubtitle: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.9)",
+    alignItems: "center",
     marginBottom: 20,
   },
-  progressContainer: {
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "white",
+  },
+  languageContainer: {
+    minWidth: 80,
+  },
+  languagePicker: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  picker: {
+    width: 80,
+    height: 40,
+    color: 'white',
+  },
+  headerPoints: {
+    minWidth: 80,
+    alignItems: 'flex-end',
+  },
+  pointsDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
+  },
+  pointsText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "white",
+  },
+  progressOverview: {
+    padding: 20,
+    borderRadius: 20,
+  },
+  progressHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 16,
-    marginBottom: 8,
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  progressTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "white",
+    marginBottom: 4,
+  },
+  progressSubtitle: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+  },
+  progressStats: {
+    alignItems: "flex-end",
+  },
+  progressPoints: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "white",
   },
   progressLabel: {
-    fontSize: 14,
-    color: "#e0e7ff",
-    fontWeight: "500",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
+  },
+  progressBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  progressBarBackground: {
+    flex: 1,
+    height: 8,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 4,
   },
   progressPercentage: {
     fontSize: 16,
-    color: "#ffffff",
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "white",
+    minWidth: 40,
   },
-  progressBar: {
-    height: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 4,
-    overflow: "hidden",
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#ffffff",
-    borderRadius: 4,
-  },
-  questsContainer: {
+  tasksContainer: {
     flex: 1,
-    paddingBottom: 16,
   },
-  questCard: {
-    borderRadius: 16,
-    margin: 16,
-    marginBottom: 8,
-    backgroundColor: '#ffffff',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    overflow: 'hidden',
+  tasksList: {
+    flex: 1,
   },
-  questCardContent: {
+  tasksContent: {
     padding: 20,
-    backgroundColor: '#ffffff',
+    paddingTop: 10,
   },
-  questHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+  glassCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  taskCardContainer: {
     marginBottom: 16,
   },
-  questIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
+  taskCard: {
+    position: 'relative',
+    overflow: 'hidden',
   },
-  questTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#000000",
+  taskCardCompleted: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
-  questPhrase: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginTop: 4,
-  },
-  questProgressText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#8b5cf6",
-    backgroundColor: "#f5f3ff",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  questTasks: {
-    marginTop: 8,
-  },
-  questFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#f3f4f6",
-  },
-  taskItem: {
+  taskContent: {
     flexDirection: "row",
     alignItems: "flex-start",
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    backgroundColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    padding: 20,
   },
-  taskCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: "#d1d5db",
+  taskIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
-    marginTop: 2,
   },
-  taskCheckboxChecked: {
-    backgroundColor: "#8b5cf6",
-    borderColor: "#8b5cf6",
-  },
-  taskInfo: {
+  taskDetails: {
     flex: 1,
   },
-  taskText: {
-    fontSize: 15,
-    color: "#1f2937",
+  taskTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 8,
     lineHeight: 22,
-    fontWeight: '500',
   },
-  taskTextCompleted: {
+  taskTitleCompleted: {
     textDecorationLine: "line-through",
-    color: "#9ca3af",
+    color: "rgba(255,255,255,0.6)",
   },
   counterContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 12,
+    gap: 16,
   },
   counterButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#f3f4f6",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
   },
+  counterButtonMinus: {
+    backgroundColor: "#ef4444",
+  },
+  counterButtonPlus: {
+    backgroundColor: "#10b981",
+  },
   counterText: {
-    marginHorizontal: 12,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    minWidth: 24,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "white",
+    minWidth: 32,
     textAlign: "center",
   },
-  input: {
-    marginTop: 8,
-    backgroundColor: "#f3f4f6",
-    borderRadius: 8,
-    padding: 12,
+  textInput: {
+    marginTop: 12,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 12,
+    padding: 16,
     fontSize: 14,
-    color: "#111827",
-    minHeight: 44,
+    color: "white",
+    minHeight: 80,
     textAlignVertical: "top",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
-  inputCompleted: {
-    backgroundColor: "#f3f4f6",
-    opacity: 0.8,
+  textInputCompleted: {
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    borderColor: "rgba(16, 185, 129, 0.3)",
   },
   pointsContainer: {
-    marginLeft: 8,
-    minWidth: 40,
-    alignItems: "flex-end",
+    marginLeft: 12,
   },
-  pointsText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#7c3aed",
-    backgroundColor: "#f5f3ff",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  pointsBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    minWidth: 50,
+    alignItems: 'center',
   },
-  pointsTextCompleted: {
-    color: "#9ca3af",
+  completionIndicator: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+  },
+  completionBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 20,
   },
   clearButton: {
+    flex: 1,
+  },
+  clearButtonContent: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 8,
+    justifyContent: "center",
+    padding: 16,
+    gap: 8,
   },
   clearButtonText: {
-    marginLeft: 4,
-    color: "#6b7280",
-    fontSize: 14,
-    fontWeight: "500",
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 16,
+    fontWeight: "600",
   },
   submitButton: {
-    borderRadius: 8,
-    height: 40,
-    width: 120,
-    overflow: 'hidden',
+    flex: 2,
+  },
+  submitButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    borderRadius: 16,
+    gap: 8,
   },
   submitButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
   },
 })

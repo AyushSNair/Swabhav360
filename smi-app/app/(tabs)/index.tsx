@@ -1,1960 +1,822 @@
-"use client"
-
-import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from "react"
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  StyleSheet,
-  ScrollView,
   View,
   Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
   Animated,
-  Easing,
   Dimensions,
-  Modal,
-  Image,
-  FlatList,
-  ImageBackground,
-  ActivityIndicator,
-} from "react-native"
-import { Ionicons } from "@expo/vector-icons"
-import { LinearGradient } from "expo-linear-gradient"
-import { useQuest } from "../QuestContext"
-import { saveSession, loadSessions, subscribeToJourneyUpdates, updateDailyTotals } from "../../services/journeyService"
-import { getAuth } from 'firebase/auth';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { FIRESTORE_DB } from '../../FirebaseConfig';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Picker } from '@react-native-picker/picker';
-import i18n, { setLanguage } from '../../i18n';
-import { useLanguage } from '../../contexts/LanguageContext';
-import Voice from '@react-native-voice/voice';
+  StatusBar,
+  RefreshControl,
+  PanGestureHandler,
+  State,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuest } from '../QuestContext';
+import { useAuth } from '../../contexts/AuthContext';
 
+const { width, height } = Dimensions.get('window');
 
-type Task = {
-  id: string
-  text: string
-  points: number
-  items?: string[]
-  isCounter?: boolean
-  isInput?: boolean
-  hasAdd?: boolean
-  hasMedia?: boolean
-  max?: number
-  isChecklistCount?: boolean
-}
-
-type QuestPeriod = "morning" | "workout" | "afternoon" | "evening" | "daily"
-
-type Quests = {
-  [key in QuestPeriod]: Task[]
-}
-
-type TaskState = {
-  checked?: boolean;
-  skipped?: boolean;
-  count?: number;
-  value?: string;
-  completedTimestamp?: string;
-  skippedTimestamp?: string;
-};
-
-type QuestState = {
-  [key in QuestPeriod]: {
-    [taskId: string]: TaskState;
-    }
-};
-
-const initialQuests: Quests = {
-  morning: [
-    { id: "1", text: "task_morning_1", points: 3 },
-    { id: "2", text: "task_morning_2", points: 3 },
-    { id: "3", text: "task_morning_3", points: 3 },
-    { id: "4", text: "task_morning_4", points: 3 },
-    {
-      id: "5",
-      text: "task_morning_5",
-      points: 3,
-      items: ["Shoes", "Socks", "Shinpad", "Bag", "Bottles", "Notebook"],
-      isChecklistCount: true,
-    },
-    { id: "6", text: "task_morning_6", points: 3 },
-  ],
-  workout: [
-    { id: "1", text: "task_workout_1", points: 3, isCounter: true },
-    { id: "2", text: "task_workout_2", points: 3, isCounter: true },
-    { id: "3", text: "task_workout_3", points: 3, isCounter: true },
-    { id: "4", text: "task_workout_4", points: 3, isCounter: true },
-    { id: "5", text: "task_workout_5", points: 5, isInput: true, max: 999 },
-    { id: "6", text: "task_workout_6", points: 3 },
-  ],
-  afternoon: [
-    { id: "1", text: "task_afternoon_1", points: 5, isInput: true, max: 200 },
-    { id: "2", text: "task_afternoon_2", points: 5, isInput: true, max: 200 },
-    { id: "3", text: "task_afternoon_3", points: 3 },
-  ],
-  evening: [
-    { id: "1", text: "task_evening_1", points: 3 },
-    { id: "2", text: "task_evening_2", points: 5, isInput: true, max: 500 },
-    { id: "3", text: "task_evening_3", points: 3, isInput: true, max: 500 },
-    { id: "4a", text: "task_evening_4a", points: 3, isInput: true, max: 500 },
-    { id: "4b", text: "task_evening_4b", points: 3, isInput: true, max: 500 },
-    { id: "4c", text: "task_evening_4c", points: 3, isInput: true, max: 500 },
-    { id: "4d", text: "task_evening_4d", points: 3 },
-  ],
-  daily: [
-    { id: "1", text: "task_daily_1", points: 3 },
-    { id: "2", text: "task_daily_2", points: 3 },
-    { id: "3", text: "task_daily_3", points: 3 },
-    { id: "4", text: "task_daily_4", points: 3 },
-    { id: "5", text: "task_daily_5", points: 5 },
-    { id: "6", text: "task_daily_6", points: 3 },
-    { id: "7", text: "task_daily_7", points: 3 },
-    { id: "8", text: "task_daily_8", points: 3 },
-  ],
-}
-
-function getInitialQuestState(quests: Quests): QuestState {
-  const initialState = {} as QuestState
-  ;(Object.keys(quests) as QuestPeriod[]).forEach((period) => {
-    initialState[period] = {}
-    quests[period].forEach((task) => {
-      if (task.isCounter) {
-        initialState[period][task.id] = { count: 0 }
-      } else if (task.isInput) {
-        initialState[period][task.id] = { value: "" }
-      } else {
-        initialState[period][task.id] = { checked: false }
-      }
-    })
-  })
-  return initialState
-}
-
-interface SessionData {
-  submitted: boolean;
-  score: number;
-  timestamp: string;
-}
-
-// Visually appealing color palette for cards
-const CARD_COLORS = [
-  ['#f472b6', '#f9a8d4'], // Pink
-  ['#60a5fa', '#a5b4fc'], // Blue
-  ['#fbbf24', '#fde68a'], // Yellow
-  ['#34d399', '#6ee7b7'], // Green
-  ['#f87171', '#fca5a5'], // Red
-  ['#a78bfa', '#c4b5fd'], // Purple
-];
-
-// Helper to get color for a task index
-function getCardColors(idx: number) {
-  return CARD_COLORS[idx % CARD_COLORS.length];
-}
-
-// Update ConfettiBurst for simple falling animation
-function ConfettiBurst({ visible, animate }: { visible: boolean; animate?: boolean }) {
-  const NUM_CONFETTI = 32;
-  const confettiAnims = React.useRef(
-    Array.from({ length: NUM_CONFETTI }, () => new Animated.Value(0))
-  ).current;
-  const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
-
-  React.useEffect(() => {
-    if (visible && animate) {
-      confettiAnims.forEach((anim, i) => {
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 900 + Math.random() * 400,
-          delay: i * 18,
-          useNativeDriver: true,
-        }).start(() => anim.setValue(0));
-      });
-    }
-  }, [visible, animate]);
-
-  if (!visible) return null;
-  return (
-    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' }}>
-      {confettiAnims.map((anim, i) => {
-        const leftPx = Math.random() * (screenWidth - 24);
-        const startY = -30 - Math.random() * 40;
-        const endY = screenHeight + 30 + Math.random() * 40;
-        const size = 12 + Math.random() * 12;
-        const color = CARD_COLORS[i % CARD_COLORS.length][Math.round(Math.random())];
-        return (
-          <Animated.View
-            key={i}
-            style={{
-              position: 'absolute',
-              left: leftPx,
-              top: startY,
-              width: size,
-              height: size,
-              borderRadius: size / 2,
-              backgroundColor: color,
-              opacity: anim.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0.85, 0.85, 0] }),
-              transform: [
-                { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1.2, 1] }) },
-                { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, endY - startY] }) },
-                { rotate: anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${Math.random() > 0.5 ? 180 : -180}deg`] }) },
-              ],
-            }}
-          />
-        );
-      })}
-    </View>
-  );
-}
-
-type CardStackProps = {
-  tasks: Task[];
-  questState: QuestState[QuestPeriod];
-  onToggle: (period: QuestPeriod, taskId: string) => void;
-  onInput: (period: QuestPeriod, taskId: string, value: string) => void;
-  onCounter: (period: QuestPeriod, taskId: string, change: number) => void;
-  onSkipTask: (period: QuestPeriod, taskId: string) => void;
-  currentTaskIndex: number;
-  setCurrentTaskIndex: (idx: number) => void;
-  isSessionSubmitted: boolean;
-  period: QuestPeriod;
-  progressLabel: string;
-  handleSessionSubmit: (period: QuestPeriod) => void;
-};
-
-function VoiceInputField({ value, onChangeText, ...props }: { value: string; onChangeText: (text: string) => void; [key: string]: any }) {
-  const [isListening, setIsListening] = useState(false);
+// Animated Progress Ring Component
+const ProgressRing = ({ 
+  progress, 
+  size = 120, 
+  strokeWidth = 8, 
+  colors = ['#6366f1', '#8b5cf6'] 
+}: {
+  progress: number;
+  size?: number;
+  strokeWidth?: number;
+  colors?: string[];
+}) => {
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
 
   useEffect(() => {
-    Voice.onSpeechResults = (e) => {
-      if (e.value && e.value.length > 0) {
-        onChangeText(e.value[0]);
-      }
-      setIsListening(false);
-    };
-    Voice.onSpeechError = (e) => {
-      console.error('Speech recognition error:', e);
-      setIsListening(false);
-    };
-    Voice.onSpeechStart = () => setIsListening(true);
-    Voice.onSpeechEnd = () => setIsListening(false);
-
-    return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
-    };
-  }, []);
-
-  const startListening = async () => {
-    setIsListening(true);
-    try {
-      await Voice.start('en-US');
-    } catch (e) {
-      console.error('Voice recognition error:', e);
-      setIsListening(false);
-    }
-  };
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-      <TextInput
-        value={value}
-        onChangeText={(text: string) => onChangeText(text)}
-        {...props}
-        style={[props.style, { flex: 1 }]}
-      />
-      <TouchableOpacity 
-        onPress={startListening} 
-        disabled={isListening} 
-        style={{ 
-          marginLeft: 8, 
-          marginTop: 8,
-          padding: 8,
-          borderRadius: 20,
-          backgroundColor: isListening ? '#ef4444' : '#f3f4f6',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 2,
-        }}
-      >
-        <Ionicons 
-          name={isListening ? "mic" : "mic-outline"} 
-          size={24} 
-          color={isListening ? '#ffffff' : '#6b7280'} 
-        />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function CardStack({
-    tasks,
-    questState,
-    onToggle,
-    onInput,
-    onCounter,
-    onSkipTask,
-    currentTaskIndex,
-    setCurrentTaskIndex,
-    isSessionSubmitted,
-    period,
-    progressLabel,
-    handleSessionSubmit,
-    isSaving,
-}: CardStackProps & { isSaving?: boolean }) {
-  const totalTasks = tasks.length;
-  const currentTask = tasks[currentTaskIndex];
-  const nextTask = currentTaskIndex < totalTasks - 1 ? tasks[currentTaskIndex + 1] : null;
-  const taskState = questState[currentTask.id] || {};
-  const isTaskDone = taskState.checked || taskState.skipped;
-  const [anim] = React.useState(new Animated.Value(0));
-
-  // Animate card transition
-  const animateNext = () => {
-    Animated.sequence([
-      Animated.timing(anim, { toValue: 1, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-      Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
-    ]).start();
-  };
-  React.useEffect(() => { anim.setValue(0); }, [currentTaskIndex]);
-
-  const handleDone = () => {
-    // Always set checked: true for all task types
-    onToggle(period, currentTask.id);
-    // Card transition is now handled after overlay hides
-  };
-
-  // Hide overlay and move to next card
-  const handleCelebrationHide = () => {
-    if (currentTaskIndex === totalTasks - 1) {
-      // Last task, auto-submit session
-      if (!isSessionSubmitted) {
-        handleSessionSubmit(period);
-      }
-      // No need to advance index, UI will move to next period automatically
-    } else {
-      animateNext();
-      setTimeout(() => setCurrentTaskIndex(currentTaskIndex + 1), 250);
-    }
-  };
-
-  const handleSkip = () => {
-    onSkipTask(period, currentTask.id);
-    animateNext();
-    setTimeout(() => setCurrentTaskIndex(currentTaskIndex + 1), 250);
-  };
-
-  // Card backgrounds
-  const [bg1, bg2] = getCardColors(currentTaskIndex);
-  const [nextBg1, nextBg2] = nextTask ? getCardColors(currentTaskIndex + 1) : [bg1, bg2];
-
-  // Progress dots
-  const dots = Array.from({ length: totalTasks }).map((_, i) => (
-    <View key={i} style={{
-      width: 8, height: 8, borderRadius: 4, margin: 3,
-      backgroundColor: i === currentTaskIndex ? '#fff' : 'rgba(255,255,255,0.4)',
-      borderWidth: i === currentTaskIndex ? 2 : 0,
-      borderColor: '#fff',
-    }} />
-  ));
-
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 40 }}>
-      <MagicalQuestCard>
-        <Animated.View style={{
-          width: '100%',
-          minHeight: 224,
-          borderRadius: 32,
-          zIndex: 1,
-          shadowColor: '#000',
-          shadowOpacity: 0.12,
-          shadowRadius: 16,
-          shadowOffset: { width: 0, height: 8 },
-          transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -40] }) }],
-          opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.7] }),
-        }}>
-          <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 10 }}>{i18n.t(currentTask.text)}</Text>
-          {/* Input fields for all isInput tasks */}
-          {currentTask.isInput && (
-            period === 'workout' && ['1','2','3','4','5'].includes(currentTask.id) ? (
-              <TextInput
-                style={[styles.numberInput, { marginTop: 12, marginBottom: 8 }]} 
-                value={taskState.value || ''}
-                onChangeText={text => {
-                  let val = text.replace(/[^0-9]/g, '');
-                  if (currentTask.max && Number(val) > currentTask.max) val = String(currentTask.max);
-                  onInput(period, currentTask.id, val);
-                }}
-                placeholder={`Enter number${currentTask.max ? ' (max ' + currentTask.max + ')' : ''}`}
-                keyboardType="numeric"
-                editable={!isTaskDone && !isSessionSubmitted}
-                maxLength={currentTask.max ? String(currentTask.max).length : 4}
-              />
-            ) : (
-              <VoiceInputField
-                style={[styles.textInput, { marginTop: 12, marginBottom: 8, minHeight: 60, maxHeight: 120, textAlignVertical: 'top' }]}
-                value={taskState.value || ''}
-                onChangeText={text => onInput(period, currentTask.id, text)}
-                placeholder={i18n.t('describe_situation')}
-                editable={!isTaskDone && !isSessionSubmitted}
-                multiline
-                numberOfLines={4}
-                maxLength={currentTask.max || 200}
-              />
-            )
-          )}
-          {/* Counter UI for isCounter tasks */}
-          {currentTask.isCounter && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 }}>
-              <TouchableOpacity
-                style={[styles.counterButton, { marginRight: 8 }]} 
-                onPress={() => {
-                  console.log('Counter - pressed', period, currentTask.id);
-                  onCounter(period, currentTask.id, -1);
-                }}
-                disabled={isTaskDone || isSessionSubmitted}
-              >
-                <Text style={{ fontSize: 20, color: '#4f46e5' }}>-</Text>
-              </TouchableOpacity>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', minWidth: 32, textAlign: 'center', color: '#fff' }}>{taskState.count || 0}</Text>
-              <TouchableOpacity
-                style={[styles.counterButton, { marginLeft: 8 }]} 
-                onPress={() => {
-                  console.log('Counter + pressed', period, currentTask.id);
-                  onCounter(period, currentTask.id, 1);
-                }}
-                disabled={isTaskDone || isSessionSubmitted}
-              >
-                <Text style={{ fontSize: 20, color: '#4f46e5' }}>+</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          <View style={{ flexDirection: 'row', marginTop: 32, justifyContent: 'space-between' }}>
-            <TouchableOpacity
-              style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginRight: 8 }}
-              onPress={handleSkip}
-              disabled={isTaskDone || isSessionSubmitted || isSaving}
-            >
-              <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>{i18n.t('skip')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginLeft: 8 }}
-              onPress={handleDone}
-              disabled={isTaskDone || isSessionSubmitted || isSaving}
-            >
-              <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>{i18n.t('done')}</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>{dots}</View>
-          <Text style={{ color: '#fff', fontSize: 14, textAlign: 'center', marginTop: 8 }}>{progressLabel}</Text>
-        </Animated.View>
-      </MagicalQuestCard>
-    </View>
-  );
-}
-
-// Debounce timers for input fields (must persist across renders)
-const debounceTimers: Record<string, NodeJS.Timeout | number> = {};
-
-// Duolingo-style animated progress bar
-function DuolingoProgressBar({ percent }: { percent: number }) {
-  const animatedWidth = React.useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    Animated.timing(animatedWidth, {
-      toValue: percent,
-      duration: 600,
+    Animated.timing(animatedValue, {
+      toValue: progress,
+      duration: 1000,
       useNativeDriver: false,
     }).start();
-  }, [percent]);
+  }, [progress]);
 
   return (
-    <View style={duoStyles.container}>
-      <Animated.View
-        style={[
-          duoStyles.fill,
-          {
-            width: animatedWidth.interpolate({
-              inputRange: [0, 100],
-              outputRange: ["0%", "100%"],
-            }),
-          },
-        ]}
-      >
-        <Ionicons name="star" size={20} color="#fff" style={duoStyles.icon} />
+    <View style={[styles.progressRing, { width: size, height: size }]}>
+      <Animated.View style={styles.progressRingContainer}>
+        <LinearGradient
+          colors={colors}
+          style={[styles.progressRingGradient, { width: size, height: size, borderRadius: size / 2 }]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+        <View style={[styles.progressRingInner, { 
+          width: size - strokeWidth * 2, 
+          height: size - strokeWidth * 2,
+          borderRadius: (size - strokeWidth * 2) / 2 
+        }]} />
       </Animated.View>
-      <View style={duoStyles.textOverlay} pointerEvents="none">
-        <Text style={duoStyles.percentText}>{percent}%</Text>
+      <View style={styles.progressRingText}>
+        <Text style={styles.progressPercentage}>{Math.round(progress)}%</Text>
+        <Text style={styles.progressLabel}>Complete</Text>
       </View>
     </View>
   );
-}
-
-const duoStyles = StyleSheet.create({
-  container: {
-    height: 24,
-    backgroundColor: "#e0e7ff",
-    borderRadius: 12,
-    overflow: "hidden",
-    width: "100%",
-    marginVertical: 12,
-    justifyContent: "center",
-  },
-  fill: {
-    height: "100%",
-    backgroundColor: "#4f46e5",
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    paddingRight: 6,
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-  },
-  icon: {
-    marginLeft: 4,
-  },
-  textOverlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  percentText: {
-    color: "#4f46e5",
-    fontWeight: "bold",
-    fontSize: 15,
-  },
-});
-
-// Update JourneyZigZagPathBar to dynamically space nodes and mascot based on container width. Use onLayout to get container width, calculate nodeSpacing, and position nodes and mascot using absolute positioning so that the first and last nodes are always fully visible and nothing overflows. Remove fixed paddings and use dynamic left positions for nodes and mascot.
-const JourneyZigZagPathBar = forwardRef(function JourneyZigZagPathBar({
-  quests,
-  questState,
-  submittedSessions,
-  activePeriod,
-  onNodePress,
-}: {
-  quests: Quests;
-  questState: QuestState;
-  submittedSessions: Record<string, any>;
-  activePeriod: QuestPeriod;
-  onNodePress: (period: QuestPeriod) => void;
-}, ref) {
-  const periods: QuestPeriod[] = ['morning', 'workout', 'afternoon', 'evening', 'daily'];
-  const nodeWidth = 38;
-  const mascotSize = 56;
-  const mascotOffsetY = 44;
-  const [containerWidth, setContainerWidth] = useState(0);
-  const nodeCount = periods.length;
-  const nodeSpacing = containerWidth > 0 && nodeCount > 1
-    ? (containerWidth - nodeWidth) / (nodeCount - 1)
-    : 0;
-  const activeIdx = periods.findIndex(p => p === activePeriod);
-
-  // Calculate mascot's left and top position
-  const mascotLeft = activeIdx * nodeSpacing + nodeWidth / 2 - mascotSize / 2;
-  const mascotTop = (activeIdx % 2 === 0 ? 0 : 24) - mascotOffsetY;
-
-  // Animated mascot movement using translateX/translateY
-  const mascotAnimX = useRef(new Animated.Value(mascotLeft)).current;
-  const mascotAnimY = useRef(new Animated.Value(mascotTop)).current;
-  const mascotBounce = useRef(new Animated.Value(0)).current;
-  const mascotSpin = useRef(new Animated.Value(0)).current;
-
-  // Expose spin method to parent
-  useImperativeHandle(ref, () => ({
-    spin: () => {
-      mascotSpin.setValue(0);
-      Animated.timing(mascotSpin, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-    },
-  }));
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(mascotAnimX, {
-        toValue: mascotLeft,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(mascotAnimY, {
-        toValue: mascotTop,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(mascotBounce, { toValue: -8, duration: 200, useNativeDriver: true }),
-          Animated.timing(mascotBounce, { toValue: 0, duration: 200, useNativeDriver: true }),
-        ]),
-        { iterations: 2 }
-      ),
-    ]).start();
-  }, [mascotLeft, mascotTop]);
-
-  // Interpolate spin value to degrees
-  const mascotSpinDeg = mascotSpin.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  return (
-    <View
-      style={{
-        position: 'relative',
-        height: 120,
-        marginVertical: 24,
-        width: '100%',
-        justifyContent: 'center',
-      }}
-      onLayout={e => setContainerWidth(e.nativeEvent.layout.width)}
-    >
-      {/* Animated mascot image */}
-      <Animated.View
-        style={{
-          position: 'absolute',
-          zIndex: 10,
-          width: mascotSize,
-          height: mascotSize,
-          alignItems: 'center',
-          justifyContent: 'center',
-          transform: [
-            { translateX: mascotAnimX },
-            { translateY: Animated.add(mascotAnimY, mascotBounce) },
-            { rotate: mascotSpinDeg },
-          ],
-        }}
-        pointerEvents='none'
-      >
-        <Image
-          source={require('../../assets/mascot.png')}
-          style={{ width: mascotSize, height: mascotSize }}
-          resizeMode='contain'
-        />
-      </Animated.View>
-      {/* Render nodes and connectors */}
-      {containerWidth > 0 && periods.map((period, idx) => {
-        const tasks = quests[period];
-        const state = questState[period] || {};
-        const completed = tasks.filter(
-          t =>
-            (t.isCounter && (state[t.id]?.count || 0) > 0) ||
-            (t.isInput && (state[t.id]?.value || '').trim() !== '') ||
-            state[t.id]?.checked ||
-            state[t.id]?.skipped
-        ).length;
-        const total = tasks.length;
-        const isActive = period === activePeriod;
-        const isDone = submittedSessions[period]?.submitted;
-        // Zig-zag: even index up, odd index down
-        const verticalOffset = idx % 2 === 0 ? 0 : 24;
-        const nodeLeft = idx * nodeSpacing;
-
-        return (
-          <React.Fragment key={period}>
-            {/* Node and label */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => onNodePress(period)}
-              style={{
-                position: 'absolute',
-                left: nodeLeft,
-                alignItems: 'center',
-                marginTop: verticalOffset,
-                marginBottom: 24 - verticalOffset,
-                zIndex: 2,
-                width: nodeWidth,
-              }}
-            >
-              <View style={{
-                width: nodeWidth, height: nodeWidth, borderRadius: nodeWidth / 2,
-                backgroundColor: isDone ? '#4f46e5' : isActive ? '#fbbf24' : '#e0e7ff',
-                borderWidth: isActive ? 3 : 2,
-                borderColor: isActive ? '#fbbf24' : isDone ? '#4f46e5' : '#e0e7ff',
-                alignItems: 'center', justifyContent: 'center',
-                shadowColor: isActive ? '#fbbf24' : undefined,
-                shadowOpacity: isActive ? 0.5 : 0,
-                shadowRadius: isActive ? 8 : 0,
-                elevation: isActive ? 4 : 0,
-              }}>
-                {isDone ? (
-                  <Ionicons name="checkmark" size={22} color="#fff" />
-                ) : (
-                  <Text style={{
-                    color: isActive
-                      ? '#4f46e5'
-                      : isDone
-                        ? '#10b981'
-                        : '#9ca3af',
-                    fontWeight: 'bold',
-                    fontSize: 16,
-                  }}>
-                    {completed}/{total}
-                  </Text>
-                )}
-              </View>
-              <Text
-                style={{
-                  fontSize: 13,
-                  color: isActive
-                    ? '#4f46e5'
-                    : isDone
-                      ? '#10b981'
-                      : '#9ca3af',
-                  marginTop: 6,
-                  fontWeight: isActive ? 'bold' : 'normal',
-                  textAlign: 'center',
-                  width: 70,
-                  textTransform: 'capitalize',
-                }}
-              >
-                {period}
-              </Text>
-            </TouchableOpacity>
-            {/* Diagonal connector */}
-            {idx < periods.length - 1 && (
-              <View style={{
-                position: 'absolute',
-                left: nodeLeft + nodeWidth,
-                top: verticalOffset + nodeWidth / 2 + 2,
-                width: nodeSpacing - nodeWidth,
-                height: 24,
-                zIndex: 1,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <View style={{
-                  width: nodeSpacing - nodeWidth,
-                  height: 4,
-                  backgroundColor: isDone || isActive ? '#4f46e5' : '#e0e7ff',
-                  borderRadius: 2,
-                  transform: [{ rotate: idx % 2 === 0 ? '20deg' : '-20deg' }],
-                }} />
-              </View>
-            )}
-          </React.Fragment>
-        );
-      })}
-    </View>
-  );
-});
-
-// Replace Starfield with MovingStarfield for a moving magical effect
-function MovingStarfield({ starCount = 20 }) {
-  const stars = Array.from({ length: starCount }).map((_, i) => ({
-    initialLeft: Math.random() * 280,
-    initialTop: Math.random() * 180,
-    size: 2 + Math.random() * 3,
-    delay: Math.random() * 2000,
-    speed: 10 + Math.random() * 20, // pixels per second
-  }));
-
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {stars.map((star, i) => {
-        const leftAnim = useRef(new Animated.Value(star.initialLeft)).current;
-        useEffect(() => {
-          Animated.loop(
-            Animated.sequence([
-              Animated.timing(leftAnim, {
-                toValue: 320, // move to the right edge
-                duration: ((320 - star.initialLeft) / star.speed) * 1000,
-                delay: star.delay,
-                useNativeDriver: false,
-              }),
-              Animated.timing(leftAnim, {
-                toValue: 0,
-                duration: 0,
-                useNativeDriver: false,
-              }),
-            ])
-          ).start();
-        }, []);
-        return (
-          <Animated.View
-            key={i}
-            style={{
-              position: 'absolute',
-              left: leftAnim,
-              top: star.initialTop,
-              width: star.size,
-              height: star.size,
-              borderRadius: star.size / 2,
-              backgroundColor: '#fff',
-              opacity: 0.8,
-              shadowColor: '#fff',
-              shadowOpacity: 0.8,
-              shadowRadius: 4,
-            }}
-          />
-        );
-      })}
-    </View>
-  );
-}
-
-function MagicalQuestCard({ children }: { children: React.ReactNode }) {
-  return (
-    <View style={{ borderRadius: 32, overflow: 'hidden', marginBottom: 20, width: 320, minHeight: 280 }}>
-      <LinearGradient
-        colors={['#a78bfa', '#f472b6', '#60a5fa']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ minHeight: 280, padding: 28, justifyContent: 'center' }}
-      >
-        <MovingStarfield starCount={24} />
-        {children}
-      </LinearGradient>
-    </View>
-  );
-}
-
-// Add a MagicalCard component for the highlighted top card
-function MagicalCard({ children }: { children: React.ReactNode }) {
-  return (
-    <View style={{ borderRadius: 16, overflow: 'hidden', margin: 20 }}>
-      <LinearGradient
-        colors={['#6d28d9', '#4f46e5']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ padding: 20, minHeight: 180, justifyContent: 'center' }}
-      >
-        <MovingStarfield starCount={18} />
-        {children}
-      </LinearGradient>
-    </View>
-  );
-}
-
-// Add mascot motivational messages mapping
-const MASCOT_MESSAGES: Record<QuestPeriod, string> = {
-  morning: "Great start! Keep up the energy!",
-  workout: "Awesome workout! You're getting stronger!",
-  afternoon: "Well done! Keep your focus sharp!",
-  evening: "Evening tasks done! Time to relax and reflect.",
-  daily: "You did it! Another day of progress!",
 };
 
-export default function JourneyScreen() {
-  const [quests] = useState<Quests>(initialQuests)
-  const [questState, setQuestState] = useState<QuestState>(() => getInitialQuestState(initialQuests))
-  const [submittedSessions, setSubmittedSessions] = useState<Record<string, SessionData>>({});
-  const [isDayComplete, setIsDayComplete] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState<QuestPeriod | null>(null);
-  
-  // Per-period current task index state
-  const [currentTaskIndices, setCurrentTaskIndices] = useState<Record<QuestPeriod, number>>({
-    morning: 0,
-    workout: 0,
-    afternoon: 0,
-    evening: 0,
-    daily: 0,
-  });
-  
-  const { setQuestState: setCtxQuestState, streak, updateStats } = useQuest();
-  
-  const scrollViewRef = useRef<ScrollView>(null);
-  
-  // Calculate stats
-  const stats = React.useMemo(() => {
-    let points = 0;
-    let completed = 0;
-    let total = 0;
+// Glassmorphism Card Component
+const GlassCard = ({ children, style = {}, gradient = ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] }: {
+  children: React.ReactNode;
+  style?: any;
+  gradient?: string[];
+}) => {
+  return (
+    <LinearGradient
+      colors={gradient}
+      style={[styles.glassCard, style]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      {children}
+    </LinearGradient>
+  );
+};
 
-    // Calculate points from submitted sessions
-    points = Object.entries(submittedSessions).reduce((sum, [period, session]) => {
-      if (session?.submitted) {
-        console.log(`Session ${period} points:`, session.score);
-        return sum + (session.score || 0);
-      }
-      return sum;
-    }, 0);
+// Animated Task Card Component
+const TaskCard = ({ 
+  task, 
+  onComplete, 
+  index 
+}: { 
+  task: any; 
+  onComplete: (id: string) => void; 
+  index: number;
+}) => {
+  const [isCompleting, setIsCompleting] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
 
-    console.log('Total points from sessions:', points);
-
-    // Calculate task completion stats
-    Object.entries(quests).forEach(([period, tasks]) => {
-      tasks.forEach((task) => {
-        total++;
-        const periodState = questState[period as QuestPeriod];
-        if (!periodState) return;
-        
-        const state = periodState[task.id];
-        if (!state) return;
-        
-        if (task.isCounter) {
-          if ((state.count || 0) > 0) {
-            completed++;
-          }
-        } else if (task.isInput) {
-          const val = state.value || '';
-          if (task.id === "5" && period === "workout") {
-            if (val !== "" && Number(val) > 0) completed++;
-          } else if (val.trim() !== "") {
-            completed++;
-          }
-        } else if (state.checked) {
-          completed++;
-        }
-      });
-    });
-
-    // Calculate percentage based on completed tasks
-    const percentComplete = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const handleComplete = () => {
+    setIsCompleting(true);
     
-    return { 
-      points, 
-      completed, 
-      total,
-      percentComplete: Math.min(100, percentComplete) // Cap at 100%
-    };
-  }, [submittedSessions, questState, quests]);
-  
-  // Update the context with the latest stats
-  React.useEffect(() => {
-    updateStats({
-      points: stats.points,
-      completed: stats.completed,
-      total: stats.total
-    });
-  }, [stats, updateStats]);
-  
-  const { points: totalPoints, completed: completedTasks, total: totalTasks, percentComplete } = stats;
-  
-  // Load saved sessions and quest state on mount
-  useEffect(() => {
-    const loadSavedData = async () => {
-      try {
-        const auth = getAuth();
-        
-        // Wait for auth state to be ready
-        return new Promise<void>((resolve) => {
-          const unsubscribe = auth.onAuthStateChanged(async (user) => {
-            if (!user) {
-              console.log('No user signed in');
-              unsubscribe();
-              resolve();
-              return;
-            }
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 1.05,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-            try {
-              // Load data from Firestore
-              const data = await loadSessions();
-              
-              if (data) {
-                // Update local state with Firestore data
-                setSubmittedSessions(data.sessions);
-                
-                // Update quest state if available
-                const updatedQuestState = { ...questState };
-                let hasUpdates = false;
-                
-                Object.entries(data.sessions).forEach(([period, session]) => {
-                  console.log(`Loading session for ${period}:`, session);
-                  if (session.questState) {
-                    updatedQuestState[period as QuestPeriod] = {
-                      ...updatedQuestState[period as QuestPeriod],
-                      ...session.questState
-                    };
-                    hasUpdates = true;
-                  }
-                });
-                
-                if (hasUpdates) {
-                  console.log('Updating quest state with:', updatedQuestState);
-                  setQuestState(updatedQuestState);
-                } else {
-                  console.log('No quest state updates needed');
-                }
-              }
-              
-              // Set up real-time listener
-              const unsubscribeFirestore = subscribeToJourneyUpdates(
-                new Date().toISOString().split('T')[0],
-                (updatedData) => {
-                  if (updatedData) {
-                    setSubmittedSessions(updatedData.sessions);
-                  }
-                }
-              );
-              
-              // Clean up function
-              return () => {
-                unsubscribe();
-                if (unsubscribeFirestore) unsubscribeFirestore();
-              };
-            } catch (error) {
-              console.error('Error loading Firestore data:', error);
-            } finally {
-              resolve();
-            }
-          });
-        });
-      } catch (error) {
-        console.error('Error in loadSavedData:', error);
-      }
-    };
-    
-    loadSavedData();
-  }, []);
-  
-  const calculateSessionScore = (period: string) => {
-    const sessionTasks = quests[period as QuestPeriod];
-    return sessionTasks.reduce((total, task) => {
-      const taskState = questState[period as QuestPeriod]?.[task.id];
-      if (taskState?.checked) {
-        return total + (task.points || 0);
-      } else if (task.isCounter && taskState?.count) {
-        return total + ((task.points || 0) * taskState.count);
-      } else if (task.isInput && taskState?.value) {
-        return total + (task.points || 0);
-      }
-      return total;
-    }, 0);
+    setTimeout(() => {
+      onComplete(task.id);
+      setIsCompleting(false);
+    }, 600);
   };
 
-  const [lastCompletedPeriod, setLastCompletedPeriod] = useState<QuestPeriod | null>(null);
+  const onGestureEvent = Animated.event(
+    [{ nativeEvent: { translationX: translateX } }],
+    { useNativeDriver: true }
+  );
 
-  const handleSessionSubmit = async (period: QuestPeriod) => {
-    try {
-      const score = calculateSessionScore(period);
-      
-      // Get the current quest state for this period
-      const currentQuestState = questState[period] || {};
-      
-      // Update local state optimistically first
-      const sessionData = {
-        submitted: true,
-        score: score,
-        timestamp: new Date().toISOString(),
-        questState: currentQuestState
-      };
-      
-      console.log('Submitting session with quest state:', {
-        period,
-        sessionData,
-        currentQuestState
-      });
-      
-      setSubmittedSessions(prev => ({
-        ...prev,
-        [period]: sessionData
-      }));
-      
-      // Save to Firestore
-      await saveSession(period, sessionData);
-      
-      // Update daily totals
-      await updateDailyTotals();
-      
-      // Scroll to top after submission
-      if (scrollViewRef.current) {
-        scrollViewRef.current.scrollTo({ y: 0, animated: true });
+  const onHandlerStateChange = (event: any) => {
+    if (event.nativeEvent.state === State.END) {
+      if (event.nativeEvent.translationX > 100 && !task.completed) {
+        handleComplete();
       }
       
-      // Show mascot motivational message
-      setLastCompletedPeriod(period);
-      
-      // Log confirmation of next period
-      setTimeout(() => {
-        const periods: QuestPeriod[] = ['morning', 'workout', 'afternoon', 'evening', 'daily'];
-        const firstIncompletePeriod = periods.find(period => {
-          const periodTasks = quests[period];
-          const periodState = questState[period] || {};
-          return periodTasks.some(task => !periodState[task.id]?.checked && !periodState[task.id]?.skipped);
-        });
-        const activePeriod = firstIncompletePeriod || periods[0];
-        console.log('[Journey] Next active period is now:', activePeriod);
-      }, 500);
-    } catch (error) {
-      console.error('Error saving session submission:', error);
-      // Revert local state on error
-      setSubmittedSessions(prev => ({
-        ...prev,
-        [period]: { ...prev[period], submitted: false }
-      }));
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+      }).start();
     }
   };
-  // Sync with context
-  React.useEffect(() => {
-    setCtxQuestState(questState)
-  }, [questState, setCtxQuestState])
-
-  const handleClear = (period: QuestPeriod) => {
-    setQuestState((prev) => {
-      const newPeriodState = { ...prev[period] }
-      quests[period].forEach((task) => {
-        if (task.isCounter) {
-          newPeriodState[task.id] = { count: 0 }
-        } else if (task.isInput) {
-          newPeriodState[task.id] = { value: "" }
-        } else {
-          newPeriodState[task.id] = { checked: false }
-        }
-      })
-      return { ...prev, [period]: newPeriodState }
-    })
-  }
-
-  const handleToggle = async (period: QuestPeriod, taskId: string) => {
-    const newChecked = !questState[period]?.[taskId]?.checked;
-    // Optimistic update
-    setQuestState(prev => {
-      const updated = {
-        ...prev,
-        [period]: {
-          ...prev[period],
-          [taskId]: {
-            ...prev[period]?.[taskId],
-            checked: newChecked
-          }
-        }
-      };
-      // Auto-save after state update
-      saveSession(period, {
-        submitted: !!submittedSessions[period]?.submitted,
-        score: calculateSessionScore(period),
-        timestamp: new Date().toISOString(),
-        questState: updated[period]
-      });
-      // Trigger mascot spin animation
-      if (progressBarRef.current && progressBarRef.current.spin) {
-        progressBarRef.current.spin();
-      }
-      return updated;
-    });
-  };
-
-  const handleCounter = (period: QuestPeriod, taskId: string, amount: number) => {
-    console.log('handleCounter called', period, taskId, amount);
-    setQuestState(prev => {
-      const currentCount = prev[period]?.[taskId]?.count || 0;
-      const newCount = Math.max(0, currentCount + amount);
-      const updated = {
-        ...prev,
-        [period]: {
-          ...prev[period],
-          [taskId]: {
-            ...prev[period]?.[taskId],
-            count: newCount
-          }
-        }
-      };
-      // Save to Firestore after updating local state
-      saveSession(period, {
-        submitted: !!submittedSessions[period]?.submitted,
-        score: calculateSessionScore(period),
-        timestamp: new Date().toISOString(),
-        questState: updated[period]
-      });
-      return updated;
-    });
-  };
-
-  const handleInput = (period: QuestPeriod, taskId: string, text: string) => {
-    let value = text;
-    if (period === 'workout' && ['1','2','3','4','5'].includes(taskId)) {
-      value = text.replace(/[^0-9]/g, '');
-      const max = quests[period].find(t => t.id === taskId)?.max;
-      if (max && Number(value) > max) value = String(max);
-    }
-    setQuestState(prev => {
-      const updated = {
-        ...prev,
-        [period]: {
-          ...prev[period],
-          [taskId]: {
-            ...prev[period]?.[taskId],
-            value
-          }
-        }
-      };
-      // Debounce Firestore save
-      if (debounceTimers[`${period}-${taskId}`]) {
-        clearTimeout(debounceTimers[`${period}-${taskId}`]);
-      }
-      debounceTimers[`${period}-${taskId}`] = setTimeout(() => {
-        saveSession(period, {
-          submitted: !!submittedSessions[period]?.submitted,
-          score: calculateSessionScore(period),
-          timestamp: new Date().toISOString(),
-          questState: updated[period]
-        });
-      }, 500); // 500ms debounce
-      return updated;
-    });
-  };
-
-  const handleSkipTask = (period: QuestPeriod, taskId: string) => {
-    setQuestState(prev => {
-      const updated = {
-        ...prev,
-        [period]: {
-          ...prev[period],
-          [taskId]: {
-            ...prev[period]?.[taskId],
-            skipped: true,
-            skippedTimestamp: new Date().toISOString()
-          }
-        }
-      };
-      // Auto-save after state update
-      saveSession(period, {
-        submitted: !!submittedSessions[period]?.submitted,
-        score: calculateSessionScore(period),
-        timestamp: new Date().toISOString(),
-        questState: updated[period]
-      });
-      return updated;
-    });
-  };
-
-  // Helper to find the first incomplete (not checked/skipped) task index for a period
-  const getFirstIncompleteTaskIndex = (period: QuestPeriod, tasks: Task[], state: QuestState) => {
-    const periodState = state[period] || {};
-    for (let i = 0; i < tasks.length; i++) {
-      const t = tasks[i];
-      const s = periodState[t.id];
-      if (!s || (!s.checked && !s.skipped)) {
-        return i;
-      }
-    }
-    return tasks.length - 1; // fallback to last
-  };
-
-  // On mount or when questState changes, update currentTaskIndices to resume progress
-  useEffect(() => {
-    setCurrentTaskIndices((prev) => {
-      const updated: Record<QuestPeriod, number> = { ...prev };
-      (Object.keys(quests) as QuestPeriod[]).forEach((period) => {
-        updated[period] = getFirstIncompleteTaskIndex(period, quests[period], questState);
-      });
-      return updated;
-    });
-  }, [questState, quests]);
-
-  // Daily reset: if the date changes, reset all progress
-  useEffect(() => {
-    const checkAndResetDaily = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const lastDate = await AsyncStorage.getItem('journey_last_date');
-      if (lastDate !== today) {
-        setQuestState(getInitialQuestState(quests));
-        setCurrentTaskIndices({ morning: 0, workout: 0, afternoon: 0, evening: 0, daily: 0 });
-        await AsyncStorage.setItem('journey_last_date', today);
-      }
-    };
-    checkAndResetDaily();
-  }, [quests]);
-
-  // Auto-submit a period when all its tasks are completed or skipped
-  useEffect(() => {
-    const periods: QuestPeriod[] = ['morning', 'workout', 'afternoon', 'evening', 'daily'];
-    periods.forEach(period => {
-      const periodTasks = quests[period];
-      const periodState = questState[period] || {};
-      const allDone = periodTasks.every(task => {
-        const state = periodState[task.id];
-        if (!state) return false;
-        if (task.isCounter) return (state.count || 0) > 0;
-        if (task.isInput) {
-          if (task.id === "5" && period === "workout") {
-            return state.value !== "" && Number(state.value) > 0;
-          }
-          return (state.value || "").trim() !== "";
-        }
-        return state.checked || state.skipped;
-      });
-      if (allDone && !submittedSessions[period]?.submitted) {
-        handleSessionSubmit(period);
-      }
-    });
-  }, [questState, quests, submittedSessions]);
-
-  // In JourneyScreen, show only the current period (first incomplete), lock others
-  const periods: QuestPeriod[] = ['morning', 'workout', 'afternoon', 'evening', 'daily'];
-  const firstIncompletePeriod = periods.find(period => {
-    const periodTasks = quests[period];
-    const periodState = questState[period] || {};
-    return periodTasks.some(task => !periodState[task.id]?.checked && !periodState[task.id]?.skipped);
-  });
-  const activePeriod = firstIncompletePeriod || periods[0];
-
-  const [showAllDoneModal, setShowAllDoneModal] = useState(false);
-
-  // Check if all quests are done and submitted
-  const allPeriods = ['morning', 'workout', 'afternoon', 'evening', 'daily'] as QuestPeriod[];
-  const allDone = allPeriods.every(period => submittedSessions[period]?.submitted);
-
-  useEffect(() => {
-    if (allDone) setShowAllDoneModal(true);
-    else setShowAllDoneModal(false);
-  }, [allDone]);
-
-  const progressBarRef = useRef<{ spin: () => void } | null>(null);
-  const { language, setLanguage } = useLanguage();
-
-  // Auto-hide mascot motivational message after 3 seconds
-  useEffect(() => {
-    if (lastCompletedPeriod) {
-      const timer = setTimeout(() => setLastCompletedPeriod(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [lastCompletedPeriod]);
 
   return (
-    <ImageBackground
-      source={require('../../assets/bg-pattern.png')}
-      style={{ flex: 1 }}
-      resizeMode="repeat"
+    <PanGestureHandler
+      onGestureEvent={onGestureEvent}
+      onHandlerStateChange={onHandlerStateChange}
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+      <Animated.View
+        style={[
+          styles.taskCardContainer,
+          {
+            transform: [
+              { scale: scaleAnim },
+              { translateX: translateX }
+            ],
+          },
+        ]}
       >
-        {/* Mascot Motivational Speech Bubble */}
-        {lastCompletedPeriod && (
-          <View style={styles.mascotSpeechBubble}>
-            <Text style={styles.mascotSpeechText}>
-              {MASCOT_MESSAGES[lastCompletedPeriod]}
-            </Text>
-            <TouchableOpacity onPress={() => setLastCompletedPeriod(null)}>
-              <Text style={styles.mascotSpeechClose}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        {/* Saving Spinner Overlay */}
-        {isSaving && (
-          <View style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.25)',
-            zIndex: 100,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}>
-            <ActivityIndicator size="large" color="#4f46e5" />
-            <Text style={{ color: '#4f46e5', marginTop: 12, fontWeight: 'bold', fontSize: 18 }}>Saving...</Text>
-          </View>
-        )}
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.container}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>{i18n.t('welcome')}</Text>
-            <View style={styles.languageContainer}>
-              <Picker
-                selectedValue={language}
-                style={styles.languagePicker}
-                onValueChange={setLanguage}
-              >
-                <Picker.Item label="English" value="en" />
-                <Picker.Item label="मराठी" value="mr" />
-              </Picker>
-            </View>
-            <View style={styles.headerPoints}>
-              <Ionicons name="star" size={16} color="#f59e0b" />
-              <Text style={styles.headerPointsText}>{totalPoints} {i18n.t('points')}</Text>
-            </View>
-          </View>
-
-          {/* Journey Card */}
-          <MagicalCard>
-            <View style={styles.journeyHeader}>
-              <Text style={styles.journeyTitle}>My Journey Today</Text>
-              <View>
-                <Text style={styles.journeyPoints}>{totalPoints}</Text>
-                <Text style={styles.journeyPointsLabel}>Total Points</Text>
-              </View>
-            </View>
-            <Text style={styles.journeySubtitle}>Ready to become your best self?</Text>
-            <View style={styles.progressContainer}>
-              <Text style={styles.progressLabel}>Daily Progress</Text>
-            </View>
-            <JourneyZigZagPathBar
-              ref={progressBarRef}
-              quests={quests}
-              questState={questState}
-              submittedSessions={submittedSessions}
-              activePeriod={activePeriod}
-              onNodePress={setSelectedPeriod}
-            />
-          </MagicalCard>
-
-          {/* Stats */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Ionicons name="flash-outline" size={24} color="#f59e0b" />
-              <Text style={styles.statValue}>3</Text>
-              <Text style={styles.statLabel}>Day Streak</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Ionicons name="ribbon-outline" size={24} color="#6d28d9" />
-              <Text style={styles.statValue}>2</Text>
-              <Text style={styles.statLabel}>Badges</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Ionicons name="checkmark-circle-outline" size={24} color="#10b981" />
-              <Text style={styles.statValue}>{percentComplete}%</Text>
-              <Text style={styles.statLabel}>Complete</Text>
-            </View>
-          </View>
-
-          {/* Quests */}
-          {!allDone && (
-            <View style={styles.questsContainer}>
-              <CardStack
-                tasks={quests[activePeriod]}
-                questState={questState[activePeriod]}
-                onToggle={async (period, taskId) => {
-                  setIsSaving(true);
-                  await handleToggle(period, taskId);
-                  setIsSaving(false);
-                }}
-                onInput={handleInput}
-                onCounter={handleCounter}
-                onSkipTask={async (period, taskId) => {
-                  setIsSaving(true);
-                  await handleSkipTask(period, taskId);
-                  setIsSaving(false);
-                }}
-                currentTaskIndex={currentTaskIndices[activePeriod]}
-                setCurrentTaskIndex={idx => setCurrentTaskIndices(prev => ({ ...prev, [activePeriod]: idx }))}
-                isSessionSubmitted={!!submittedSessions[activePeriod]?.submitted}
-                period={activePeriod}
-                progressLabel={`${activePeriod.charAt(0).toUpperCase() + activePeriod.slice(1)} Quest`}
-                handleSessionSubmit={handleSessionSubmit}
-                isSaving={isSaving}
+        <GlassCard style={[
+          styles.taskCard,
+          task.completed && styles.taskCardCompleted,
+          isCompleting && styles.taskCardCompleting
+        ]}>
+          <View style={styles.taskContent}>
+            <View style={[styles.taskIcon, task.completed && styles.taskIconCompleted]}>
+              <Ionicons 
+                name={task.completed ? 'checkmark' : task.icon} 
+                size={24} 
+                color={task.completed ? '#10b981' : '#6366f1'} 
               />
+            </View>
+            <View style={styles.taskDetails}>
+              <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
+                {task.title}
+              </Text>
+              <Text style={styles.taskDescription}>{task.description}</Text>
+            </View>
+            <View style={styles.taskPoints}>
+              <LinearGradient
+                colors={['#f59e0b', '#f97316']}
+                style={styles.pointsBadge}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.pointsText}>+{task.points}</Text>
+              </LinearGradient>
+            </View>
+          </View>
+          
+          {!task.completed && (
+            <TouchableOpacity 
+              style={styles.taskCompleteButton}
+              onPress={handleComplete}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#10b981', '#059669']}
+                style={styles.completeButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons name="checkmark" size={20} color="white" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+          
+          {isCompleting && (
+            <View style={styles.completionAnimation}>
+              <Animated.View style={styles.rippleEffect} />
             </View>
           )}
-          <View style={{ height: 40 }} />
+        </GlassCard>
+      </Animated.View>
+    </PanGestureHandler>
+  );
+};
 
-        </ScrollView>
-        {/* All Done Modal */}
-        <Modal
-          visible={showAllDoneModal}
-          transparent
-          animationType="fade"
+// Stats Card Component
+const StatsCard = ({ icon, value, label, color }: {
+  icon: string;
+  value: string | number;
+  label: string;
+  color: string;
+}) => {
+  return (
+    <GlassCard style={styles.statsCard}>
+      <View style={[styles.statsIcon, { backgroundColor: color + '20' }]}>
+        <Ionicons name={icon as any} size={24} color={color} />
+      </View>
+      <Text style={styles.statsValue}>{value}</Text>
+      <Text style={styles.statsLabel}>{label}</Text>
+    </GlassCard>
+  );
+};
+
+// Main Journey Screen Component
+export default function JourneyScreen() {
+  const { user } = useAuth();
+  const { questState, totalPoints, completedTasks, totalTasks, streak } = useQuest();
+  const [refreshing, setRefreshing] = useState(false);
+  const [userStats, setUserStats] = useState({
+    level: 12,
+    dailyProgress: 67,
+    weeklyGoal: 85,
+    monthlyStreak: 15
+  });
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const [tasks, setTasks] = useState([
+    { 
+      id: '1', 
+      title: 'Morning Meditation', 
+      description: '10 minutes mindfulness practice', 
+      icon: 'leaf-outline', 
+      points: 15, 
+      completed: false,
+      category: 'wellness'
+    },
+    { 
+      id: '2', 
+      title: 'Workout Session', 
+      description: '30 minutes cardio training', 
+      icon: 'fitness-outline', 
+      points: 25, 
+      completed: false,
+      category: 'fitness'
+    },
+    { 
+      id: '3', 
+      title: 'Read 20 Pages', 
+      description: 'Personal development book', 
+      icon: 'book-outline', 
+      points: 20, 
+      completed: true,
+      category: 'learning'
+    },
+    { 
+      id: '4', 
+      title: 'Hydration Goal', 
+      description: 'Drink 8 glasses of water', 
+      icon: 'water-outline', 
+      points: 10, 
+      completed: true,
+      category: 'health'
+    },
+    { 
+      id: '5', 
+      title: 'Evening Reflection', 
+      description: 'Journal your thoughts', 
+      icon: 'journal-outline', 
+      points: 15, 
+      completed: false,
+      category: 'mindfulness'
+    },
+  ]);
+
+  const handleTaskComplete = (taskId: string) => {
+    setTasks(prev => prev.map(task => 
+      task.id === taskId ? { ...task, completed: true } : task
+    ));
+    
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      setUserStats(prev => ({
+        ...prev,
+        dailyProgress: Math.min(100, prev.dailyProgress + 15)
+      }));
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  };
+
+  const completedTasksCount = tasks.filter(task => task.completed).length;
+  const taskProgress = (completedTasksCount / tasks.length) * 100;
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      {/* Animated Header */}
+      <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
+        <LinearGradient
+          colors={['rgba(99, 102, 241, 0.9)', 'rgba(139, 92, 246, 0.9)']}
+          style={styles.headerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+        <Text style={styles.headerTitle}>Your Journey</Text>
+      </Animated.View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />
+        }
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+      >
+        {/* Hero Section with Gradient Background */}
+        <LinearGradient
+          colors={['#6366f1', '#8b5cf6', '#ec4899']}
+          style={styles.heroSection}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}>
-            <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 32, alignItems: 'center', maxWidth: 320 }}>
-              <Ionicons name="trophy" size={64} color="#f59e0b" style={{ marginBottom: 16 }} />
-              <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#4f46e5', textAlign: 'center', marginBottom: 12 }}>
-                All quests done for today!
-              </Text>
-              <Text style={{ fontSize: 18, color: '#22223b', textAlign: 'center', marginBottom: 8 }}>
-                Come back tomorrow and keep winning and keep rising.
-              </Text>
-              <Text style={{ fontSize: 18, color: '#22223b', textAlign: 'center', fontWeight: 'bold', marginBottom: 24 }}>
-                Never give up!!
-              </Text>
-              <TouchableOpacity
-                style={{ backgroundColor: '#4f46e5', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32 }}
-                onPress={() => setShowAllDoneModal(false)}
-              >
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Back to App</Text>
-              </TouchableOpacity>
+          <View style={styles.heroContent}>
+            <View style={styles.welcomeSection}>
+              <Text style={styles.welcomeText}>Welcome back,</Text>
+              <Text style={styles.userName}>{user?.email?.split('@')[0] || 'Champion'}!</Text>
             </View>
-          </View>
-        </Modal>
-        {/* Modal for viewing tasks of a period */}
-        <Modal
-          visible={!!selectedPeriod}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setSelectedPeriod(null)}
-        >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
-            <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, minWidth: 300, maxWidth: 340, maxHeight: 500 }}>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#4f46e5', textAlign: 'center' }}>
-                {selectedPeriod ? selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1) : ''} {i18n.t('tasks')}
-              </Text>
-              <FlatList
-                data={selectedPeriod ? quests[selectedPeriod] : []}
-                keyExtractor={item => item.id}
-                renderItem={({ item }) => {
-                  const state = selectedPeriod ? questState[selectedPeriod]?.[item.id] : undefined;
-                  let status = '';
-                  if (item.isCounter) {
-                    status = (state?.count || 0) > 0 ? `Count: ${state?.count}` : 'Not done';
-                  } else if (item.isInput) {
-                    status = state?.value ? `Input: ${state.value}` : 'Not done';
-                  } else if (state?.checked) {
-                    status = 'Done';
-                  } else if (state?.skipped) {
-                    status = 'Skipped';
-                  } else {
-                    status = 'Not done';
-                  }
-                  return (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                      <Ionicons
-                        name={status === 'Done' ? 'checkmark-circle' : status === 'Skipped' ? 'close-circle' : 'ellipse-outline'}
-                        size={20}
-                        color={status === 'Done' ? '#10b981' : status === 'Skipped' ? '#f87171' : '#9ca3af'}
-                        style={{ marginRight: 10 }}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 15, color: '#22223b' }}>{i18n.t(item.text)}</Text>
-                        <Text style={{ fontSize: 12, color: '#6b7280' }}>{status}</Text>
-                      </View>
-                    </View>
-                  );
-                }}
-                ListEmptyComponent={<Text style={{ color: '#9ca3af', textAlign: 'center' }}>No tasks found.</Text>}
-                style={{ marginBottom: 16 }}
+
+            {/* Main Progress Ring */}
+            <View style={styles.progressSection}>
+              <ProgressRing 
+                progress={taskProgress} 
+                size={160} 
+                strokeWidth={12}
+                colors={['#ffffff', 'rgba(255,255,255,0.8)']}
               />
-              <TouchableOpacity
-                style={{ backgroundColor: '#4f46e5', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 24, alignSelf: 'center' }}
-                onPress={() => setSelectedPeriod(null)}
-              >
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{i18n.t('close')}</Text>
-              </TouchableOpacity>
+              <View style={styles.progressDetails}>
+                <Text style={styles.progressTitle}>Daily Progress</Text>
+                <Text style={styles.progressSubtitle}>
+                  {completedTasksCount} of {tasks.length} tasks completed
+                </Text>
+              </View>
+            </View>
+
+            {/* Quick Stats */}
+            <View style={styles.quickStats}>
+              <StatsCard 
+                icon="flame" 
+                value={streak} 
+                label="Day Streak" 
+                color="#f59e0b" 
+              />
+              <StatsCard 
+                icon="trophy" 
+                value={userStats.level} 
+                label="Level" 
+                color="#8b5cf6" 
+              />
+              <StatsCard 
+                icon="star" 
+                value={totalPoints} 
+                label="Points" 
+                color="#10b981" 
+              />
             </View>
           </View>
-        </Modal>
-      </KeyboardAvoidingView>
-    </ImageBackground>
+        </LinearGradient>
+
+        {/* Tasks Section */}
+        <View style={styles.tasksSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Today's Quests</Text>
+            <TouchableOpacity style={styles.sectionAction}>
+              <Text style={styles.sectionActionText}>View All</Text>
+              <Ionicons name="chevron-forward" size={16} color="#6366f1" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.tasksList}>
+            {tasks.map((task, index) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onComplete={handleTaskComplete}
+                index={index}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Weekly Overview */}
+        <View style={styles.weeklySection}>
+          <GlassCard style={styles.weeklyCard}>
+            <View style={styles.weeklyHeader}>
+              <Text style={styles.weeklyTitle}>Weekly Overview</Text>
+              <View style={styles.weeklyProgress}>
+                <Text style={styles.weeklyPercentage}>{userStats.weeklyGoal}%</Text>
+              </View>
+            </View>
+            
+            <View style={styles.weeklyChart}>
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => (
+                <View key={day} style={styles.chartBar}>
+                  <View style={[
+                    styles.chartBarFill,
+                    { height: `${Math.random() * 80 + 20}%` }
+                  ]} />
+                  <Text style={styles.chartLabel}>{day}</Text>
+                </View>
+              ))}
+            </View>
+          </GlassCard>
+        </View>
+
+        {/* Achievements Preview */}
+        <View style={styles.achievementsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Achievements</Text>
+            <TouchableOpacity style={styles.sectionAction}>
+              <Text style={styles.sectionActionText}>View All</Text>
+              <Ionicons name="chevron-forward" size={16} color="#6366f1" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.achievementsList}>
+            {[
+              { icon: 'medal', title: 'First Week', color: '#f59e0b' },
+              { icon: 'flame', title: 'Streak Master', color: '#ef4444' },
+              { icon: 'star', title: 'Point Collector', color: '#8b5cf6' },
+            ].map((achievement, index) => (
+              <GlassCard key={index} style={styles.achievementCard}>
+                <View style={[styles.achievementIcon, { backgroundColor: achievement.color + '20' }]}>
+                  <Ionicons name={achievement.icon as any} size={24} color={achievement.color} />
+                </View>
+                <Text style={styles.achievementTitle}>{achievement.title}</Text>
+              </GlassCard>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0f0f23',
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    zIndex: 1000,
+    justifyContent: 'flex-end',
+    paddingBottom: 16,
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 10,
-    backgroundColor: "#ffffff",
+  },
+  headerGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: '700',
+    color: 'white',
+    textAlign: 'center',
   },
-  headerPoints: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
+  scrollView: {
+    flex: 1,
   },
-  headerPointsText: {
-    fontSize: 16,
-    fontWeight: "bold",
+  scrollContent: {
+    paddingBottom: 20,
   },
-  journeyCard: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 16,
+  heroSection: {
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
   },
-  journeyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+  heroContent: {
+    alignItems: 'center',
   },
-  journeyTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    width: "60%",
+  welcomeSection: {
+    alignItems: 'center',
+    marginBottom: 30,
   },
-  journeyPoints: {
+  welcomeText: {
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
+  },
+  userName: {
+    fontSize: 28,
+    color: 'white',
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  progressSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  progressRing: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  progressRingContainer: {
+    position: 'absolute',
+  },
+  progressRingGradient: {
+    position: 'absolute',
+  },
+  progressRingInner: {
+    backgroundColor: '#6366f1',
+    position: 'absolute',
+    top: 12,
+    left: 12,
+  },
+  progressRingText: {
+    alignItems: 'center',
+  },
+  progressPercentage: {
     fontSize: 32,
-    fontWeight: "bold",
-    color: "#ffffff",
-    textAlign: "right",
-  },
-  journeyPointsLabel: {
-    fontSize: 14,
-    color: "#e0e7ff",
-    textAlign: "right",
-  },
-  journeySubtitle: {
-    fontSize: 16,
-    color: "#e0e7ff",
-    marginTop: 8,
-  },
-  progressContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
+    fontWeight: '700',
+    color: 'white',
   },
   progressLabel: {
     fontSize: 14,
-    color: "#e0e7ff",
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
   },
-  progressPercentage: {
+  progressDetails: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  progressTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  progressSubtitle: {
     fontSize: 14,
-    fontWeight: "bold",
-    color: "#ffffff",
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
   },
-  progressBar: {
-    height: 8,
-    backgroundColor: "rgba(255,255,255,0.3)",
-    borderRadius: 4,
-    marginTop: 8,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#ffffff",
-    borderRadius: 4,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: 20,
-    marginTop: -10,
+  quickStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
     gap: 12,
   },
-  statCard: {
+  statsCard: {
     flex: 1,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
     padding: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  doneButtonContainer: {
-    marginTop: 24,
-    marginBottom: 12,
-    marginHorizontal: 12,
-  },
-  doneButton: {
-    flexDirection: 'row',
-    backgroundColor: '#4f46e5',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    shadowColor: '#4f46e5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
   },
-  disabledButton: {
-    backgroundColor: '#6b7280',
-    shadowColor: '#6b7280',
-  },
-  disabledButtonContainer: {
-    opacity: 0.8,
-  },
-  doneButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  doneButtonIcon: {
-    marginLeft: 8,
-  },
-  emptyState: {
-    padding: 16,
-    alignItems: 'center',
+  statsIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
-    minHeight: 80,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderStyle: 'dashed',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  emptyStateText: {
-    color: '#9ca3af',
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  statValue: {
+  statsValue: {
     fontSize: 20,
-    fontWeight: "bold",
-    marginTop: 8,
+    fontWeight: '700',
+    color: 'white',
   },
-  statLabel: {
-    fontSize: 14,
-    color: "#6b7280",
+  statsLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: 4,
   },
-  questsContainer: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-  },
-  questCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+  tasksSection: {
     padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  questHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  questIconContainer: {
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: 'white',
+  },
+  sectionAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sectionActionText: {
+    fontSize: 14,
+    color: '#6366f1',
+    fontWeight: '600',
+  },
+  tasksList: {
+    gap: 12,
+  },
+  taskCardContainer: {
+    marginBottom: 4,
+  },
+  glassCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  taskCard: {
+    padding: 16,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  taskCardCompleted: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  taskCardCompleting: {
+    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+  },
+  taskContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  taskIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 16,
   },
-  questTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
+  taskIconCompleted: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
   },
-  questPhrase: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontStyle: "italic",
-  },
-  questProgressText: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  questTasks: {
-    gap: 16,
-  },
-  taskItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  taskInfo: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 16,
+  taskDetails: {
     flex: 1,
   },
-  taskCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#d1d5db",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 2,
-  },
-  taskCheckboxChecked: {
-    backgroundColor: "#3b82f6",
-    borderColor: "#3b82f6",
-  },
-  taskText: {
+  taskTitle: {
     fontSize: 16,
-    flexShrink: 1,
-    lineHeight: 22,
+    fontWeight: '600',
+    color: 'white',
+    marginBottom: 4,
   },
-  taskTags: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
+  taskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: 'rgba(255,255,255,0.6)',
   },
-  taskTag: {
-    backgroundColor: "#e5e7eb",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  taskTagText: {
-    fontSize: 12,
-    color: "#4b5563",
+  taskDescription: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
   },
   taskPoints: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 'auto',
+    marginLeft: 12,
   },
-  taskCount: {
-    marginHorizontal: 4,
-    minWidth: 24,
+  pointsBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  pointsText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'white',
+  },
+  taskCompleteButton: {
+    position: 'absolute',
+    right: 16,
+    top: '50%',
+    marginTop: -20,
+  },
+  completeButtonGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completionAnimation: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rippleEffect: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(99, 102, 241, 0.3)',
+  },
+  weeklySection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  weeklyCard: {
+    padding: 20,
+  },
+  weeklyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  weeklyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  weeklyProgress: {
+    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  weeklyPercentage: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6366f1',
+  },
+  weeklyChart: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    height: 100,
+  },
+  chartBar: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginHorizontal: 2,
+  },
+  chartBarFill: {
+    width: '80%',
+    backgroundColor: '#6366f1',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  chartLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  achievementsSection: {
+    paddingHorizontal: 20,
+  },
+  achievementsList: {
+    paddingVertical: 8,
+  },
+  achievementCard: {
+    width: 120,
+    padding: 16,
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  achievementIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  achievementTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
     textAlign: 'center',
   },
-  taskPointsText: {
-    marginLeft: 8,
-    color: '#6b7280',
-    fontSize: 12,
-  },
-  counter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  counterButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#e5e7eb",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  counterValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    minWidth: 20,
-    textAlign: "center",
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 15,
-    lineHeight: 20,
-    textAlignVertical: "top",
-    minHeight: 100,
-    width: "100%",
-    marginTop: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    color: "#1f2937",
-  },
-  numberInput: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
-    borderRadius: 8,
-    padding: 8,
-    width: 80,
-    textAlign: "center",
-    fontSize: 16,
-    marginTop: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    color: "#1f2937",
-  },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 8,
-  },
-  addButtonText: {
-    fontSize: 14,
-    color: "#6b7280",
-  },
-  mediaButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 8,
-  },
-  mediaButtonText: {
-    fontSize: 14,
-    color: "#6b7280",
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f3f4f6",
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 6,
-  },
-  clearButton: {
-    backgroundColor: "#f3f4f6",
-  },
-  submitButton: {
-    backgroundColor: "#e0fdf4",
-  },
-  clearButtonText: {
-    color: "#64748b",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-  questActionsRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-    marginTop: 16,
-  },
-  submitButtonText: {
-    color: "#10b981",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-  languageContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  languagePicker: {
-    width: 120,
-    height: 50,
-    color: '#4f46e5',
-  },
-  mascotSpeechBubble: {
-    position: 'absolute',
-    top: 160, // adjust as needed to appear above mascot
-    left: 40, // adjust as needed
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 200,
-    minWidth: 200,
-    maxWidth: 260,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  mascotSpeechText: {
-    color: '#4f46e5',
-    fontSize: 16,
-    fontWeight: 'bold',
-    flex: 1,
-  },
-  mascotSpeechClose: {
-    marginLeft: 12,
-    fontSize: 18,
-    color: '#aaa',
-  },
-})
+});
