@@ -2,14 +2,14 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { FIREBASE_AUTH } from '../../FirebaseConfig';
 import { signOut } from 'firebase/auth';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 
 const CoachDashboard = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
 
   const handleLogout = async () => {
     await signOut(FIREBASE_AUTH);
-    router.replace('/login');
+    // navigation.replace('Login'); // No navigation needed, handled by auth state
   };
 
   return (

@@ -13,17 +13,18 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { FIREBASE_AUTH, FIRESTORE_DB } from '../../FirebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 export default function StudentProfileScreen() {
   const { user } = useAuth();
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const navigation = useNavigation();
   type Profile = {
     name: string;
     email?: string;
@@ -123,7 +124,6 @@ export default function StudentProfileScreen() {
       await signOut(FIREBASE_AUTH);
       setProfile(blankProfile);
       setShowLogoutModal(false);
-      router.replace('/login?signedOut=true');
     } catch (error) {
       console.error('Error during logout:', error);
       // Even if we can't show the alert, at least log the error
