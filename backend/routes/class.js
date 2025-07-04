@@ -59,6 +59,13 @@ router.post('/:classId/remove-student', async (req, res) => {
     }
 })
 
-
+router.delete('/:classId', async (req, res) => {
+    try {
+        await classesCollection.doc(req.params.classId).delete();
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete class', details: error.message });
+    }
+})
 
 export default router;

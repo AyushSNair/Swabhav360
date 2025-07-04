@@ -31,3 +31,10 @@ export async function removeStudentFromClass(classId: string, studentId: string)
   });
   return res.json();
 }
+
+export async function deleteClass(classId: string) {
+  const res = await fetch(`${API_URL}/${classId}`, {
+    method: "DELETE",
+  });
+  return res.json();
+} 
