@@ -1,421 +1,542 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  Image, 
+  TouchableOpacity, 
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  StatusBar
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getLeaderboard } from '../../services/journeyService';
 import { getAuth } from 'firebase/auth';
 
+const { width } = Dimensions.get('window');
+
 type User = {
-id: string;
-name: string;
-score: number;
-rank: number;
-avatar: string;
+  id: string;
+  name: string;
+  score: number;
+  rank: number;
+  avatar: string;
+  level?: number;
 };
 
 type Filter = 'weekly' | 'monthly' | 'all-time';
 
-export default function LeaderboardScreen() {
-const [activeFilter, setActiveFilter] = useState<Filter>('weekly');
-const [leaderboard, setLeaderboard] = useState<User[]>([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState<string | null>(null);
-const auth = getAuth();
-
-useEffect(() => {
-const fetchLeaderboard = async () => {
-try {
-setLoading(true);
-const data = await getLeaderboard(activeFilter);
-setLeaderboard(data);
-setError(null);
-} catch (err) {
-console.error('Failed to load leaderboard:', err);
-setError('Failed to load leaderboard. Please try again.');
-} finally {
-setLoading(false);
-}
+// Glassmorphism Card Component
+const GlassCard = ({ children, style = {}, gradient = ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] }: {
+  children: React.ReactNode;
+  style?: any;
+  gradient?: string[];
+}) => {
+  return (
+    <LinearGradient
+      colors={gradient}
+      style={[styles.glassCard, style]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      {children}
+    </LinearGradient>
+  );
 };
 
+// Animated Podium Component
+const PodiumUser = ({ user, position }: { user: User; position: number }) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(50)).current;
 
-fetchLeaderboard();
-}, [activeFilter]);
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        delay: position * 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        delay: position * 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
-const currentUserId = auth.currentUser?.uid;
+  const getPodiumHeight = () => {
+    switch (position) {
+      case 1: return 120;
+      case 2: return 100;
+      case 3: return 80;
+      default: return 60;
+    }
+  };
 
-// Robust user validation
-const isValidUser = (u: any): u is User =>
-  u &&
-  typeof u === 'object' &&
-  typeof u.id === 'string' &&
-  typeof u.rank === 'number' &&
-  typeof u.name === 'string' &&
-  typeof u.score === 'number';
+  const getMedalEmoji = () => {
+    switch (position) {
+      case 1: return '🥇';
+      case 2: return '🥈';
+      case 3: return '🥉';
+      default: return '🏅';
+    }
+  };
 
-// Filter out any undefined or malformed users
-const filteredLeaderboard = leaderboard.filter(isValidUser);
-const topThree = filteredLeaderboard.filter(u => u.rank <= 3).sort((a, b) => a.rank - b.rank);
-const others = filteredLeaderboard.filter(u => u.rank > 3).sort((a, b) => a.rank - b.rank);
-const currentUserObj = filteredLeaderboard.find(u => u.id === currentUserId);
-const currentUserRank = currentUserObj ? currentUserObj.rank : 0;
+  const getPodiumColor = () => {
+    switch (position) {
+      case 1: return ['#ffd700', '#ffed4e'];
+      case 2: return ['#c0c0c0', '#e5e7eb'];
+      case 3: return ['#cd7f32', '#f97316'];
+      default: return ['#6366f1', '#8b5cf6'];
+    }
+  };
 
-// Debug log
-console.log('filteredLeaderboard:', filteredLeaderboard);
-console.log('topThree:', topThree);
-console.log('others:', others);
-
-const getPodiumUserStyle = (rank: number) => {
-switch (rank) {
-case 1: return styles.rank1;
-case 2: return styles.rank2;
-case 3: return styles.rank3;
-default: return {};
-}
-};
-
-return (
-<ScrollView style={styles.container}>
-{/* Header */}
-<View style={styles.header}>
-<Text style={styles.headerTitle}>Leaderboard</Text>
-<View style={styles.timeFilter}>
-<TouchableOpacity
-style={[styles.filterButton, activeFilter === 'weekly' && styles.activeFilter]}
-onPress={() => setActiveFilter('weekly')}
->
-<Text style={[styles.filterText, activeFilter === 'weekly' && styles.activeFilterText]}>Weekly</Text>
-</TouchableOpacity>
-<TouchableOpacity
-style={[styles.filterButton, activeFilter === 'monthly' && styles.activeFilter]}
-onPress={() => setActiveFilter('monthly')}
->
-<Text style={[styles.filterText, activeFilter === 'monthly' && styles.activeFilterText]}>Monthly</Text>
-</TouchableOpacity>
-<TouchableOpacity
-style={[styles.filterButton, activeFilter === 'all-time' && styles.activeFilter]}
-onPress={() => setActiveFilter('all-time')}
->
-<Text style={[styles.filterText, activeFilter === 'all-time' && styles.activeFilterText]}>All Time</Text>
-</TouchableOpacity>
-</View>
-</View>
-
-
-  {loading ? (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#4f46e5" />
-      <Text style={styles.loadingText}>Loading leaderboard...</Text>
-    </View>
-  ) : error ? (
-    <View style={styles.errorContainer}>
-      <Ionicons name="alert-circle" size={40} color="#ef4444" />
-      <Text style={styles.errorText}>{error}</Text>
-    </View>
-  ) : (
-    <>
-      {/* Top 3 Podium */}
-      <View style={styles.podiumContainer}>
-        {topThree.map((user) => (
-          <View key={user.id} style={[styles.podiumUser, getPodiumUserStyle(user.rank), user.id === currentUserId && styles.currentUser]}>
-            <Text style={styles.medalEmoji}>
-              {user.rank === 1 ? '🥇' : user.rank === 2 ? '🥈' : '🥉'}
-            </Text>
-            <Text 
-              style={[
-                styles.podiumName, 
-                user.id === currentUserId && styles.currentUserName
-              ]} 
-              numberOfLines={1}
-            >
-              {user.id === currentUserId ? 'You' : user.name}
-            </Text>
-            <Text style={styles.podiumScore}>{user.score.toLocaleString()}</Text>
-            <View style={[styles.rankBadge, user.rank === 1 && styles.rank1Badge]}>
-              <Text style={[styles.rankText, user.rank === 1 && styles.rank1Text]}>{user.rank}</Text>
-            </View>
+  return (
+    <Animated.View 
+      style={[
+        styles.podiumUser,
+        {
+          transform: [
+            { scale: scaleAnim },
+            { translateY: translateY }
+          ]
+        }
+      ]}
+    >
+      <View style={styles.podiumUserContent}>
+        <Text style={styles.medalEmoji}>{getMedalEmoji()}</Text>
+        
+        <View style={styles.avatarContainer}>
+          <Image source={{ uri: user.avatar }} style={styles.podiumAvatar} />
+          <View style={[styles.rankBadge, { backgroundColor: getPodiumColor()[0] }]}>
+            <Text style={styles.rankText}>{position}</Text>
           </View>
-        ))}
+        </View>
+        
+        <Text style={styles.podiumName} numberOfLines={1}>
+          {user.name}
+        </Text>
+        <Text style={styles.podiumScore}>{user.score.toLocaleString()}</Text>
       </View>
+      
+      <LinearGradient
+        colors={getPodiumColor()}
+        style={[styles.podiumBase, { height: getPodiumHeight() }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+      />
+    </Animated.View>
+  );
+};
 
-      {/* Current User's Position */}
-      {currentUserRank > 3 && currentUserObj && (
-        <View style={[styles.leaderboardItem, styles.currentUserItem]}>
-          <View style={styles.rankContainer}>
-            <Text style={styles.rank}>{currentUserRank}</Text>
-          </View>
-          <Image 
-            source={{ uri: currentUserObj.avatar }} 
-            style={styles.avatar} 
-            onError={() => console.log('Failed to load avatar')}
-          />
-          <Text style={[styles.name, styles.currentUserName]}>You</Text>
-          <Text style={styles.score}>
-            {currentUserObj.score.toLocaleString()}
+// Leaderboard Item Component
+const LeaderboardItem = ({ user, isCurrentUser = false }: { user: User; isCurrentUser?: boolean }) => {
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      delay: user.rank * 50,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+      <GlassCard style={[
+        styles.leaderboardItem,
+        isCurrentUser && styles.currentUserItem
+      ]}>
+        <View style={styles.rankContainer}>
+          <Text style={[styles.rank, isCurrentUser && styles.currentUserText]}>
+            {user.rank}
           </Text>
         </View>
-      )}
-    </>
-  )}
-
-  {/* Other Users */}
-  {!loading && !error && (
-    <View style={styles.leaderboardList}>
-      {others
-        .filter(user => user.id !== currentUserId)
-        .map((user) => (
-          <View 
-            key={user.id} 
-            style={[styles.leaderboardItem, user.id === currentUserId && styles.currentUserItem]}
-          >
-            <View style={styles.rankContainer}>
-              <Text style={styles.rank}>{user.rank}</Text>
+        
+        <View style={styles.avatarContainer}>
+          <Image source={{ uri: user.avatar }} style={styles.avatar} />
+          {isCurrentUser && (
+            <View style={styles.currentUserBadge}>
+              <Ionicons name="person" size={12} color="white" />
             </View>
-            <Image 
-              source={{ uri: user.avatar }} 
-              style={styles.avatar}
-              onError={() => console.log('Failed to load avatar')}
-            />
-            <Text 
-              style={[styles.name, user.id === currentUserId && styles.currentUserName]} 
-              numberOfLines={1}
-            >
-              {user.id === currentUserId ? 'You' : user.name}
-            </Text>
-            <Text style={styles.score}>{user.score.toLocaleString()}</Text>
+          )}
+        </View>
+        
+        <View style={styles.userInfo}>
+          <Text style={[styles.name, isCurrentUser && styles.currentUserText]} numberOfLines={1}>
+            {isCurrentUser ? 'You' : user.name}
+          </Text>
+          <Text style={styles.level}>Level {user.level || Math.floor(user.score / 100)}</Text>
+        </View>
+        
+        <View style={styles.scoreContainer}>
+          <Text style={[styles.score, isCurrentUser && styles.currentUserText]}>
+            {user.score.toLocaleString()}
+          </Text>
+          <Text style={styles.pointsLabel}>pts</Text>
+        </View>
+      </GlassCard>
+    </Animated.View>
+  );
+};
+
+export default function LeaderboardScreen() {
+  const [activeFilter, setActiveFilter] = useState<Filter>('weekly');
+  const [leaderboard, setLeaderboard] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const auth = getAuth();
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        setLoading(true);
+        const data = await getLeaderboard(activeFilter);
+        setLeaderboard(data);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to load leaderboard:', err);
+        setError('Failed to load leaderboard. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeaderboard();
+  }, [activeFilter]);
+
+  const currentUserId = auth.currentUser?.uid;
+  const filteredLeaderboard = leaderboard.filter(u => u && typeof u === 'object');
+  const topThree = filteredLeaderboard.filter(u => u.rank <= 3).sort((a, b) => a.rank - b.rank);
+  const others = filteredLeaderboard.filter(u => u.rank > 3).sort((a, b) => a.rank - b.rank);
+  const currentUserObj = filteredLeaderboard.find(u => u.id === currentUserId);
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      {/* Header with Gradient */}
+      <LinearGradient
+        colors={['#6366f1', '#8b5cf6', '#ec4899']}
+        style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <Text style={styles.headerTitle}>Leaderboard</Text>
+        
+        {/* Filter Tabs */}
+        <View style={styles.filterContainer}>
+          <GlassCard style={styles.filterTabs}>
+            {(['weekly', 'monthly', 'all-time'] as Filter[]).map((filter) => (
+              <TouchableOpacity
+                key={filter}
+                style={[
+                  styles.filterTab,
+                  activeFilter === filter && styles.activeFilterTab
+                ]}
+                onPress={() => setActiveFilter(filter)}
+              >
+                <Text style={[
+                  styles.filterText,
+                  activeFilter === filter && styles.activeFilterText
+                ]}>
+                  {filter.charAt(0).toUpperCase() + filter.slice(1).replace('-', ' ')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </GlassCard>
+        </View>
+      </LinearGradient>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6366f1" />
+            <Text style={styles.loadingText}>Loading leaderboard...</Text>
           </View>
-        ))}
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={48} color="#ef4444" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : (
+          <>
+            {/* Podium Section */}
+            {topThree.length > 0 && (
+              <View style={styles.podiumSection}>
+                <Text style={styles.sectionTitle}>Top Champions</Text>
+                <View style={styles.podiumContainer}>
+                  {topThree.map((user) => (
+                    <PodiumUser
+                      key={user.id}
+                      user={user}
+                      position={user.rank}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Current User Position (if not in top 3) */}
+            {currentUserObj && currentUserObj.rank > 3 && (
+              <View style={styles.currentUserSection}>
+                <Text style={styles.sectionTitle}>Your Position</Text>
+                <LeaderboardItem user={currentUserObj} isCurrentUser={true} />
+              </View>
+            )}
+
+            {/* Other Users */}
+            {others.length > 0 && (
+              <View style={styles.othersSection}>
+                <Text style={styles.sectionTitle}>
+                  {topThree.length > 0 ? 'Other Competitors' : 'All Competitors'}
+                </Text>
+                {others
+                  .filter(user => user.id !== currentUserId)
+                  .map((user) => (
+                    <LeaderboardItem
+                      key={user.id}
+                      user={user}
+                      isCurrentUser={false}
+                    />
+                  ))}
+              </View>
+            )}
+          </>
+        )}
+        
+        <View style={{ height: 100 }} />
+      </ScrollView>
     </View>
-  )}
-  <View style={{height: 100}}/>
-</ScrollView>
-);
+  );
 }
 
 const styles = StyleSheet.create({
-loadingContainer: {
-flex: 1,
-justifyContent: 'center',
-alignItems: 'center',
-padding: 20,
-},
-loadingText: {
-marginTop: 10,
-color: '#6b7280',
-fontSize: 16,
-},
-errorContainer: {
-flex: 1,
-justifyContent: 'center',
-alignItems: 'center',
-padding: 20,
-},
-errorText: {
-marginTop: 10,
-color: '#ef4444',
-textAlign: 'center',
-fontSize: 16,
-},
-currentUserItem: {
-backgroundColor: '#f0f9ff',
-borderLeftWidth: 3,
-borderLeftColor: '#0ea5e9',
-},
-currentUserName: {
-fontWeight: 'bold',
-color: '#0ea5e9',
-},
-currentUser: {
-borderWidth: 2,
-borderColor: '#0ea5e9',
-borderRadius: 12,
-padding: 5,
-marginBottom: 5,
-},
-container: {
-flex: 1,
-backgroundColor: '#f3f4f6',
-},
-header: {
-backgroundColor: '#ffffff',
-paddingTop: 50,
-paddingBottom: 20,
-paddingHorizontal: 20,
-alignItems: 'center',
-},
-headerTitle: {
-fontSize: 24,
-fontWeight: 'bold',
-marginBottom: 20,
-},
-timeFilter: {
-flexDirection: 'row',
-backgroundColor: '#e5e7eb',
-borderRadius: 20,
-padding: 4,
-},
-filterButton: {
-paddingHorizontal: 16,
-paddingVertical: 8,
-borderRadius: 16,
-},
-activeFilter: {
-backgroundColor: '#ffffff',
-shadowColor: '#000',
-shadowOffset: { width: 0, height: 1 },
-shadowOpacity: 0.1,
-shadowRadius: 2,
-elevation: 2,
-},
-filterText: {
-fontSize: 14,
-color: '#4b5563',
-},
-activeFilterText: {
-fontWeight: 'bold',
-color: '#3b82f6',
-},
-podiumContainer: {
-flexDirection: 'row',
-justifyContent: 'space-around',
-alignItems: 'flex-end',
-padding: 20,
-paddingBottom: 40,
-backgroundColor: '#ffffff',
-borderBottomLeftRadius: 30,
-borderBottomRightRadius: 30,
-marginBottom: 20,
-minHeight: 220,
-},
-podiumUser: {
-alignItems: 'center',
-width: 120,
-paddingHorizontal: 5,
-},
-podiumName: {
-fontSize: 14,
-fontWeight: '600',
-marginTop: 8,
-textAlign: 'center',
-flexWrap: 'wrap',
-maxWidth: '100%',
-paddingHorizontal: 4,
-},
-podiumScore: {
-fontSize: 14,
-color: '#6b7280',
-marginTop: 4,
-fontWeight: 'bold',
-},
-rank1: {
-bottom: 40,
-},
-rank2: {
-bottom: 20,
-},
-rank3: {
-bottom: 20,
-},
-medalEmoji: {
-fontSize: 50,
-marginBottom: 10,
-},
-podiumRank: {
-position: 'absolute',
-top: -5,
-right: 5,
-width: 28,
-height: 28,
-borderRadius: 14,
-backgroundColor: '#ffffff',
-justifyContent: 'center',
-alignItems: 'center',
-shadowColor: '#000',
-shadowOffset: { width: 0, height: 2 },
-shadowOpacity: 0.2,
-shadowRadius: 2,
-elevation: 4,
-},
-podiumRankText: {
-fontSize: 14,
-fontWeight: 'bold',
-},
-
-listContainer: {
-marginHorizontal: 20,
-},
-userRow: {
-flexDirection: 'row',
-alignItems: 'center',
-backgroundColor: '#ffffff',
-padding: 16,
-borderRadius: 12,
-marginBottom: 12,
-},
-currentUserRow: {
-backgroundColor: '#e0e7ff',
-borderWidth: 1,
-borderColor: '#3b82f6',
-},
-rank: {
-fontSize: 16,
-fontWeight: 'bold',
-width: 30,
-color: '#6b7280',
-},
-avatar: {
-width: 40,
-height: 40,
-borderRadius: 20,
-marginHorizontal: 16,
-},
-name: {
-flex: 1,
-fontSize: 16,
-fontWeight: 'bold',
-},
-score: {
-fontSize: 16,
-fontWeight: 'bold',
-color: '#3b82f6',
-},
-// Rank badge styles
-rankBadge: {
-position: 'absolute',
-top: -10,
-right: -10,
-backgroundColor: '#3b82f6',
-width: 24,
-height: 24,
-borderRadius: 12,
-justifyContent: 'center',
-alignItems: 'center',
-},
-rank1Badge: {
-backgroundColor: '#fcd34d',
-},
-rankText: {
-color: 'white',
-fontWeight: 'bold',
-fontSize: 12,
-},
-rank1Text: {
-color: '#000',
-},
-leaderboardItem: {
-flexDirection: 'row',
-alignItems: 'center',
-backgroundColor: '#ffffff',
-padding: 16,
-borderRadius: 12,
-marginBottom: 12,
-marginHorizontal: 20,
-},
-rankContainer: {
-width: 30,
-alignItems: 'center',
-marginRight: 10,
-},
-leaderboardList: {
-marginTop: 10,
-paddingBottom: 20,
-},
-}); 
+  container: {
+    flex: 1,
+    backgroundColor: '#0f0f23',
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: 'white',
+    marginBottom: 20,
+  },
+  filterContainer: {
+    width: '100%',
+  },
+  filterTabs: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    padding: 4,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  activeFilterTab: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  filterText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '500',
+  },
+  activeFilterText: {
+    color: 'white',
+    fontWeight: '700',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorText: {
+    marginTop: 16,
+    color: '#ef4444',
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  podiumSection: {
+    padding: 20,
+    paddingTop: 30,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  podiumContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    gap: 16,
+    paddingHorizontal: 20,
+  },
+  podiumUser: {
+    alignItems: 'center',
+    flex: 1,
+    maxWidth: 100,
+  },
+  podiumUserContent: {
+    alignItems: 'center',
+    marginBottom: 8,
+    zIndex: 1,
+  },
+  medalEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  podiumAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 3,
+    borderColor: 'white',
+  },
+  rankBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rankText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'white',
+  },
+  podiumName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  podiumScore: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
+  },
+  podiumBase: {
+    width: '100%',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  currentUserSection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  othersSection: {
+    paddingHorizontal: 20,
+  },
+  glassCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  leaderboardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    marginBottom: 12,
+  },
+  currentUserItem: {
+    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    borderColor: 'rgba(99, 102, 241, 0.4)',
+  },
+  rankContainer: {
+    width: 40,
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  rank: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.8)',
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  currentUserBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#6366f1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  name: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    marginBottom: 2,
+  },
+  level: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  scoreContainer: {
+    alignItems: 'flex-end',
+  },
+  score: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: 'white',
+  },
+  pointsLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  currentUserText: {
+    color: '#6366f1',
+  },
+});
