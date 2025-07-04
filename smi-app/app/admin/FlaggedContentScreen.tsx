@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 
 interface FlaggedContent {
   _id: string;
@@ -45,8 +45,8 @@ interface Stats {
 
 const API_BASE_URL = 'http://localhost:3000/api/content-assessment';
 
-export default function FlaggedContentScreen() {
-  const router = useRouter();
+const FlaggedContentScreen = () => {
+  const navigation = useNavigation();
   const [flaggedContent, setFlaggedContent] = useState<FlaggedContent[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -189,7 +189,7 @@ export default function FlaggedContentScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.navigate('FlaggedContentScreen')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#007AFF" />
         </TouchableOpacity>
         <Text style={styles.title}>Flagged Content</Text>

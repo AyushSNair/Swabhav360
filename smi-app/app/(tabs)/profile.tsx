@@ -22,6 +22,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 // Glassmorphism Card Component
 const GlassCard = ({ children, style = {}, gradient = ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] }: {
@@ -93,7 +94,7 @@ const StatCard = ({ icon, value, label, color, delay = 0 }: {
 export default function StudentProfileScreen() {
   const { user } = useAuth();
   const [loadingProfile, setLoadingProfile] = useState(true);
-  
+  const navigation = useNavigation();
   type Profile = {
     name: string;
     email?: string;

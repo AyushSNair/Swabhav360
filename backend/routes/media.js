@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-const storage = admin.storage().bucket(); // default bucket
+// const storage = admin.storage().bucket(); // default bucket (DISABLED)
 
 const verifyFirebaseToken = async (req, res, next) => {
   const auth = req.headers.authorization?.split('Bearer ')[1];
@@ -31,21 +31,21 @@ router.post(
     const { title, description } = req.body;
     const file = req.file;
     const filename = `media/${uid}/${uuidv4()}_${file.originalname}`;
-    const fileHandle = storage.file(filename);
+    // const fileHandle = storage.file(filename);
+    const publicUrl = null; // No storage, so no URL
 
     try {
-      await fileHandle.save(file.buffer, {
-        metadata: { contentType: file.mimetype },
-      });
-      await fileHandle.makePublic(); // Optional: or use signed URLs
-      const publicUrl = fileHandle.publicUrl();
+      // await fileHandle.save(file.buffer, {
+      //   metadata: { contentType: file.mimetype },
+      // });
+      // await fileHandle.makePublic(); // Optional: or use signed URLs
 
       const doc = {
         uid,
         title: title || null,
         description: description || null,
         imageUrl: publicUrl,
-        storagePath: filename,
+        storagePath: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
@@ -92,7 +92,7 @@ router.delete('/:id', verifyFirebaseToken, async (req, res) => {
       return res.status(403).json({ error: 'Not your file' });
     
     // Delete from storage
-    await storage.file(data.storagePath).delete();
+    // await storage.file(data.storagePath).delete();
     // Delete Firestore doc
     await docRef.delete();
 

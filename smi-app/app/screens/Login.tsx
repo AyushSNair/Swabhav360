@@ -17,7 +17,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import { useRouter } from "expo-router";
+import { useNavigation } from '@react-navigation/native';
 
 const { height, width } = Dimensions.get("window");
 
@@ -26,7 +26,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const router = useRouter();
+  const navigation = useNavigation();
   const auth = FIREBASE_AUTH;
 
   const signIn = async () => {
