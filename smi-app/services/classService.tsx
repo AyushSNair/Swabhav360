@@ -1,4 +1,4 @@
-const API_URL = "http://192.168.7.10:3000/api/class"; // Replace <YOUR_BACKEND_URL> with your backend's address
+const API_URL = "https://smi-backend-ieme.onrender.com/api/class"; // Replace <YOUR_BACKEND_URL> with your backend's address
 
 export async function createClass(name: string, description?: string, coachId?: string) {
   const res = await fetch(`${API_URL}/create`, {

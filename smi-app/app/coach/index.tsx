@@ -4,7 +4,7 @@ import { FIREBASE_AUTH } from '../../FirebaseConfig';
 import { signOut } from 'firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 
-const API_URL = 'http://192.168.7.10:3000/api/class'; // Update as needed
+const API_URL = 'https://smi-backend-ieme.onrender.com/api/class'; // Update as needed
 
 const CoachDashboard = () => {
   const navigation = useNavigation();

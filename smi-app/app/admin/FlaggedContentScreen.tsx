@@ -43,7 +43,7 @@ interface Stats {
   reasons: Array<{ _id: string; count: number }>;
 }
 
-const API_BASE_URL = 'http://localhost:3000/api/content-assessment';
+const API_BASE_URL = 'https://smi-backend-ieme.onrender.com/api/content-assessment';
 
 const FlaggedContentScreen = () => {
   const navigation = useNavigation();

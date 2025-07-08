@@ -174,7 +174,7 @@ const EnhancedActivityTracker: React.FC = () => {
         throw new Error('User not authenticated');
       }
 
-      const response = await fetch(`https://smi-backend-c3zp.onrender.com/daily-activity?uid=${user.uid}`);
+      const response = await fetch(`https://smi-backend-ieme.onrender.com/daily-activity?uid=${user.uid}`);
       if (!response.ok) {
         throw new Error('Failed to fetch activities');
       }
@@ -326,7 +326,7 @@ const EnhancedActivityTracker: React.FC = () => {
 
       console.log('Sending data:', dataToSend);
 
-      const response = await fetch('https://smi-backend-c3zp.onrender.com/daily-activity', {
+      const response = await fetch('https://smi-backend-ieme.onrender.com/daily-activity', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
