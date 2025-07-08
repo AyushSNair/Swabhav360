@@ -12,19 +12,21 @@ import CoachDashboard from './app/coach';
 import UserDetailsScreen from './app/admin/UserDetailsScreen';
 import SessionDetailsScreen from './app/admin/SessionDetailsScreen';
 import SessionEntryScreen from './app/admin/SessionEntryScreen';
+import ManageClassesScreen from './app/admin/ManageClassesScreen';
+import ClassDetailsScreen from './app/admin/ClassDetailsScreen';
 const Stack = createNativeStackNavigator();
 const InsideStack = createNativeStackNavigator();
 
 
-// Import the tabs layout
-import TabLayout from './app/(tabs)/_layout';
+// Import the student tabs
+import StudentTabs from './app/StudentTabs';
 
 const ADMIN_EMAILS = ['admin1@smi.com', 'admin2@smi.com'];
 const COACH_EMAILS = ['coach1@smi.com', 'coach2@smi.com']; 
 
 function InsideLayout() {
-  console.log('InsideLayout - Rendering TabLayout');
-  return <TabLayout />;
+  console.log('InsideLayout - Rendering StudentTabs');
+  return <StudentTabs />;
 }
 
 function AppContent() {
@@ -124,6 +126,16 @@ function AppContent() {
           name="SessionEntry"
           component={SessionEntryScreen}
           options={{ headerShown: true, title: 'Session Entry' }}
+        />
+        <Stack.Screen
+          name="ManageClasses"
+          component={ManageClassesScreen}
+          options={{ headerShown: true, title: 'Manage Classes' }}
+        />
+        <Stack.Screen
+          name="ClassDetails"
+          component={ClassDetailsScreen}
+          options={{ headerShown: true, title: 'Class Details' }}
         />
       </Stack.Navigator>
       <Toast />

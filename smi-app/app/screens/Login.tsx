@@ -17,7 +17,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import { useRouter } from "expo-router";
+
 
 const { height, width } = Dimensions.get("window");
 
@@ -26,7 +26,6 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const router = useRouter();
   const auth = FIREBASE_AUTH;
 
   const signIn = async () => {
@@ -38,7 +37,7 @@ const Login = () => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // Navigation will be handled by auth state change in _layout.tsx
+      // Navigation will be handled by auth state change in App.tsx
     } catch (error: any) {
       alert("Login failed: " + error.message);
     } finally {
@@ -56,7 +55,7 @@ const Login = () => {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       // The user will be automatically redirected to the profile setup screen
-      // due to the auth state change in _layout.tsx
+      // due to the auth state change in App.tsx
     } catch (error: any) {
       alert("Signup failed: " + error.message);
     } finally {

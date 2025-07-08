@@ -6,6 +6,7 @@ import mediaRoutes from './routes/media.js';
 import contentAssessmentRoutes from './routes/contentAssessment.js';
 import DailyActivityService from './models/DailyActivity.js';
 import admin from './firebaseAdmin.js';
+import classRoutes from './routes/class.js';
 
 dotenv.config();
 const app = express();
@@ -23,6 +24,7 @@ app.use(express.json());
 app.use('/api/module/mood', moodRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/content-assessment', contentAssessmentRoutes);
+app.use('/api/class', classRoutes);
 
 // Middleware to verify Firebase token
 const verifyFirebaseToken = async (req, res, next) => {
