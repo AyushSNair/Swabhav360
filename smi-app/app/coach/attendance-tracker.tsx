@@ -56,7 +56,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ selectedClass, on
     }, {})
   );
   
-  const [isInitialized, setIsInitialized] = useState(false);
+
   
   // Load attendance data from Firestore when component mounts or date changes
   useEffect(() => {
@@ -173,7 +173,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ selectedClass, on
     </View>
   );
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
+  const handleDateChange = (event: { type: string }, selectedDate?: Date) => {
     if (selectedDate) {
       setSelectedDate(selectedDate);
       if (Platform.OS === 'android') {

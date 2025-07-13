@@ -89,7 +89,7 @@ const SkillAssessment: React.FC<SkillAssessmentProps> = ({ selectedClass, onBack
   const [loading, setLoading] = useState(false);
   const [assessments, setAssessments] = useState<SkillAssessmentRecord[]>([]);
   const [showAssessmentForm, setShowAssessmentForm] = useState(false);
-  const [selectedAssessment, setSelectedAssessment] = useState<SkillAssessmentRecord | null>(null);
+
   const [error, setError] = useState<string | null>(null);
 
   const handleSaveAssessment = async () => {
@@ -124,7 +124,6 @@ const SkillAssessment: React.FC<SkillAssessmentProps> = ({ selectedClass, onBack
       setRemark('');
       setRating(3);
       setShowAssessmentForm(false);
-      setSelectedAssessment(null);
       
       Alert.alert('Success', 'Skill assessment saved successfully');
     } catch (error) {
@@ -289,7 +288,6 @@ const SkillAssessment: React.FC<SkillAssessmentProps> = ({ selectedClass, onBack
                 onPress={() => {
                   setShowAssessmentForm(false);
                   setSelectedStudent(null);
-                  setSelectedAssessment(null);
                 }} 
                 style={styles.backButton}
               >

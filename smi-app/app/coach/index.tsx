@@ -12,13 +12,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { FIREBASE_AUTH } from '../../FirebaseConfig';
 import { signOut } from 'firebase/auth';
-import { useNavigation } from '@react-navigation/native';
+
 import { MaterialIcons } from '@expo/vector-icons';
 import AttendanceTracker from './attendance-tracker';
 import SkillAssessment from './skill-assessment';
 import Tasks from './tasks';
 
-const API_URL = 'https://smi-backend-ieme.onrender.com/api/class';//qwerrtyy
+const API_URL = 'https://smi-backend-ieme.onrender.com/api/class';
 let patternBg;
 try {
   patternBg = require('../../assets/bg-pattern.png');
@@ -42,7 +42,6 @@ interface Class {
 }
 
 const CoachDashboard = () => {
-  const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<'classes' | 'attendance' | 'skills' | 'tasks'>('classes');
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,16 +56,25 @@ const CoachDashboard = () => {
   useEffect(() => {
     const fetchClasses = async () => {
       const user = FIREBASE_AUTH.currentUser;
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const res = await fetch(`${API_URL}/coach/${user.uid}/classes`);
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
         const data = await res.json();
-        setClasses(data);
+        setClasses(data || []);
       } catch (error) {
         console.error('Error fetching classes:', error);
+        Alert.alert('Error', 'Failed to load classes. Please check your connection and try again.');
+        setClasses([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchClasses();
   }, []);
@@ -76,7 +84,7 @@ const CoachDashboard = () => {
     // navigation.replace('Login'); // No navigation needed, handled by auth state
   };
 
-  const handleSaveAttendance = async (classId: string, date: string, attendance: any[]) => {
+  const handleSaveAttendance = async (classId: string, date: string, attendance: { studentId: string; present: boolean }[]) => {
     try {
       const response = await fetch(`${API_URL}/attendance`, {
         method: 'POST',
@@ -104,7 +112,7 @@ const CoachDashboard = () => {
     }
   };
 
-  const handleSaveAssessment = async (classId: string, assessment: any): Promise<void> => {
+  const handleSaveAssessment = async (classId: string, assessment: { studentId: string; date: string; skill: string; remark: string; rating: number }): Promise<void> => {
     try {
       const response = await fetch(`${API_URL}/assessments`, {
         method: 'POST',
@@ -346,13 +354,7 @@ const CoachDashboard = () => {
             </View>
             <TouchableOpacity
               onPress={() => {
-                try {
-                  if (navigation && navigation.navigate) {
-                    navigation.navigate('CoachDetails');
-                  }
-                } catch (e) {
-                  Alert.alert('Profile', 'Coach details screen not available!');
-                }
+                Alert.alert('Profile', 'Coach profile details coming soon!');
               }}
               activeOpacity={0.7}
               accessibilityLabel="Coach Profile"
@@ -404,7 +406,23 @@ const CoachDashboard = () => {
             <View style={{ flex: 1 }}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Your Classes</Text>
-                <TouchableOpacity style={styles.refreshButton}>
+                <TouchableOpacity 
+                  style={styles.refreshButton}
+                  onPress={() => {
+                    const user = FIREBASE_AUTH.currentUser;
+                    if (user) {
+                      setLoading(true);
+                      fetch(`${API_URL}/coach/${user.uid}/classes`)
+                        .then(res => res.json())
+                        .then(data => setClasses(data || []))
+                        .catch(error => {
+                          console.error('Error refreshing classes:', error);
+                          Alert.alert('Error', 'Failed to refresh classes');
+                        })
+                        .finally(() => setLoading(false));
+                    }
+                  }}
+                >
                   <MaterialIcons name="refresh" size={20} color="#4F46E5" />
                 </TouchableOpacity>
               </View>
