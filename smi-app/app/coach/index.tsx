@@ -18,7 +18,7 @@ import AttendanceTracker from './attendance-tracker';
 import SkillAssessment from './skill-assessment';
 import Tasks from './tasks';
 
-const API_URL = 'https://smi-backend-ieme.onrender.com/api/class';
+const API_URL = 'https://smi-backend-ieme.onrender.com/api/class';//qwerrtyy
 let patternBg;
 try {
   patternBg = require('../../assets/bg-pattern.png');
