@@ -14,6 +14,7 @@ import SessionDetailsScreen from './app/admin/SessionDetailsScreen';
 import SessionEntryScreen from './app/admin/SessionEntryScreen';
 import ManageClassesScreen from './app/admin/ManageClassesScreen';
 import ClassDetailsScreen from './app/admin/ClassDetailsScreen';
+import StudentTaskScreen from './app/admin/StudentTaskScreen';
 const Stack = createNativeStackNavigator();
 const InsideStack = createNativeStackNavigator();
 
@@ -136,6 +137,11 @@ function AppContent() {
           name="ClassDetails"
           component={ClassDetailsScreen}
           options={{ headerShown: true, title: 'Class Details' }}
+        />
+        <Stack.Screen
+          name="StudentTaskScreen"
+          component={StudentTaskScreen}
+          options={{ headerShown: true, title: 'Student Tasks' }}
         />
       </Stack.Navigator>
       <Toast />

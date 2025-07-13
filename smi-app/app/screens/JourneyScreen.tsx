@@ -59,6 +59,7 @@ type TaskState = {
   value?: string;
   completedTimestamp?: string;
   skippedTimestamp?: string;
+  question?: string; // <-- Add this line
 };
 
 type QuestState = {
@@ -69,50 +70,50 @@ type QuestState = {
 
 const initialQuests: Quests = {
   morning: [
-    { id: "1", text: "task_morning_1", points: 3 },
-    { id: "2", text: "task_morning_2", points: 3 },
-    { id: "3", text: "task_morning_3", points: 3 },
-    { id: "4", text: "task_morning_4", points: 3 },
+    { id: "mng_1", text: "Slept 8 hours(slept before 9:30pm last night?)", points: 3 },
+    { id: "mng_2", text: "Brushed your teeth?", points: 3 },
+    { id: "mng_3", text: "Went to poop?", points: 3 },
+    { id: "mng_4", text: "Boiled water and drank?", points: 3 },
     {
-      id: "5",
-      text: "task_morning_5",
+      id: "mng_5",
+      text: "Packed session items in advance?",
       points: 3,
       items: ["Shoes", "Socks", "Shinpad", "Bag", "Bottles", "Notebook"],
       isChecklistCount: true,
     },
-    { id: "6", text: "task_morning_6", points: 3 },
+    { id: "mng_6", text: "Thanked God your creator?", points: 3 },
   ],
   workout: [
-    { id: "1", text: "task_workout_1", points: 3, isCounter: true },
-    { id: "2", text: "task_workout_2", points: 3, isCounter: true },
-    { id: "3", text: "task_workout_3", points: 3, isCounter: true },
-    { id: "4", text: "task_workout_4", points: 3, isCounter: true },
-    { id: "5", text: "task_workout_5", points: 5, isInput: true, max: 999 },
-    { id: "6", text: "task_workout_6", points: 3 },
+    { id: "wrk_1", text: "25 Pushups", points: 3, isCounter: true },
+    { id: "wrk_2", text: "25 Pullups", points: 3, isCounter: true },
+    { id: "wrk_3", text: "25 Glute Bridges", points: 3, isCounter: true },
+    { id: "wrk_4", text: "25 Squats", points: 3, isCounter: true },
+    { id: "wrk_5", text: "Juggling", points: 5, isInput: true, max: 999 },
+    { id: "wrk_6", text: "Practiced only with team members", points: 3 },
   ],
   afternoon: [
-    { id: "1", text: "task_afternoon_1", points: 5, isInput: true, max: 200 },
-    { id: "2", text: "task_afternoon_2", points: 5, isInput: true, max: 200 },
-    { id: "3", text: "task_afternoon_3", points: 3 },
+    { id: "aft_1", text: "Helped someone?", points: 5, isInput: true, max: 200 },
+    { id: "aft_2", text: "Forgave someone?", points: 5, isInput: true, max: 200 },
+    { id: "aft_3", text: "Went to school today?", points: 3 },
   ],
   evening: [
-    { id: "1", text: "task_evening_1", points: 3 },
-    { id: "2", text: "task_evening_2", points: 5, isInput: true, max: 500 },
-    { id: "3", text: "task_evening_3", points: 3, isInput: true, max: 500 },
-    { id: "4a", text: "task_evening_4a", points: 3, isInput: true, max: 500 },
-    { id: "4b", text: "task_evening_4b", points: 3, isInput: true, max: 500 },
-    { id: "4c", text: "task_evening_4c", points: 3, isInput: true, max: 500 },
-    { id: "4d", text: "task_evening_4d", points: 3 },
+    { id: "evn_1", text: "Washed jersey kit after the game?", points: 3 },
+    { id: "evn_2", text: "Daily update (before 9 PM)", points: 5, isInput: true, max: 500 },
+    { id: "evn_3", text: "What good happened today?", points: 3, isInput: true, max: 500 },
+    { id: "evn_4a", text: "What bad happened today?", points: 3, isInput: true, max: 500 },
+    { id: "evn_4b", text: "Highest moment of the day?", points: 3, isInput: true, max: 500 },
+    { id: "evn_4c", text: "Lowest moment of the day?", points: 3, isInput: true, max: 500 },
+    { id: "evn_4d", text: "Dinner before 8 PM?", points: 3 },
   ],
   daily: [
-    { id: "1", text: "task_daily_1", points: 3 },
-    { id: "2", text: "task_daily_2", points: 3 },
-    { id: "3", text: "task_daily_3", points: 3 },
-    { id: "4", text: "task_daily_4", points: 3 },
-    { id: "5", text: "task_daily_5", points: 5 },
-    { id: "6", text: "task_daily_6", points: 3 },
-    { id: "7", text: "task_daily_7", points: 3 },
-    { id: "8", text: "task_daily_8", points: 3 },
+    { id: "dly_1", text: "Drank minimum 2 litres of water?", points: 3 },
+    { id: "dly_2", text: "Went to turf today?", points: 3 },
+    { id: "dly_3", text: "Listened to parents and helped them?", points: 3 },
+    { id: "dly_4", text: "Respect and value girls? in neighbourhood, school, and public?", points: 3 },
+    { id: "dly_5", text: "No outside food?", points: 5 },
+    { id: "dly_6", text: 'No bf/gf? say "My focus is career now, so I will not talk"', points: 3 },
+    { id: "dly_7", text: "No addictions? – porn, cigarette, tobacco, etc.", points: 3 },
+    { id: "dly_8", text: 'No talking to area friends? say "My focus is career now, so I will not talk"', points: 3 },
   ],
 }
 
@@ -376,7 +377,7 @@ function CardStack({
           transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -40] }) }],
           opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.7] }),
         }}>
-          <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 10 }}>{i18n.t(currentTask.text)}</Text>
+          <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 10 }}>{i18n.t(currentTask.id)}</Text>
           {/* Input fields for all isInput tasks */}
           {currentTask.isInput && (
             period === 'workout' && ['1','2','3','4','5'].includes(currentTask.id) ? (
@@ -1031,10 +1032,14 @@ export default function JourneyScreen() {
   const handleSessionSubmit = async (period: QuestPeriod) => {
     try {
       const score = calculateSessionScore(period);
-      
-      // Get the current quest state for this period
-      const currentQuestState = questState[period] || {};
-      
+      // Build a new questState object for this period, including question text
+      const currentQuestState: typeof questState[QuestPeriod] = {};
+      quests[period].forEach(task => {
+        const state = questState[period][task.id];
+        if (state) {
+          currentQuestState[task.id] = { ...state, question: task.text };
+        }
+      });
       // Update local state optimistically first
       const sessionData = {
         submitted: true,
@@ -1042,32 +1047,20 @@ export default function JourneyScreen() {
         timestamp: new Date().toISOString(),
         questState: currentQuestState
       };
-      
-      console.log('Submitting session with quest state:', {
-        period,
-        sessionData,
-        currentQuestState
-      });
-      
       setSubmittedSessions(prev => ({
         ...prev,
         [period]: sessionData
       }));
-      
       // Save to Firestore
       await saveSession(period, sessionData);
-      
       // Update daily totals
       await updateDailyTotals();
-      
       // Scroll to top after submission
       if (scrollViewRef.current) {
         scrollViewRef.current.scrollTo({ y: 0, animated: true });
       }
-      
       // Show mascot motivational message
       setLastCompletedPeriod(period);
-      
       // Log confirmation of next period
       setTimeout(() => {
         const periods: QuestPeriod[] = ['morning', 'workout', 'afternoon', 'evening', 'daily'];
@@ -1515,7 +1508,7 @@ export default function JourneyScreen() {
                         style={{ marginRight: 10 }}
                       />
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 15, color: '#22223b' }}>{i18n.t(item.text)}</Text>
+                        <Text style={{ fontSize: 15, color: '#22223b' }}>{i18n.t(item.id)}</Text>
                         <Text style={{ fontSize: 12, color: '#6b7280' }}>{status}</Text>
                       </View>
                     </View>
