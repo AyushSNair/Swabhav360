@@ -240,9 +240,9 @@ const UserDetailsScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* <StatusBar barStyle="light-content" backgroundColor="#1E40AF" /> */}
+      <StatusBar barStyle="light-content" backgroundColor="#1E40AF" />
       
-      {/* <LinearGradient
+      <LinearGradient
         colors={['#1E40AF', '#3B82F6']}
         style={styles.header}
       >
@@ -254,7 +254,7 @@ const UserDetailsScreen = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Daily Progress</Text>
         <View style={styles.headerPlaceholder} />
-      </LinearGradient> */}
+      </LinearGradient>
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   statsContainer: {
-    backgroundColor: 'lightblue',
+    backgroundColor: 'lightyellow',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,

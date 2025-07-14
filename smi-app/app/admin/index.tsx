@@ -15,6 +15,8 @@ type User = {
   profileComplete?: boolean;
 };
 
+const COACH_EMAILS = ['coach1@smi.com', 'coach2@smi.com']; // Add all coach emails here
+
 const AdminDashboard = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -55,110 +57,145 @@ const AdminDashboard = () => {
     }
   };
 
-  const renderUserCard = ({ item }: { item: User }) => (
-    <TouchableOpacity 
-      style={styles.userCard} 
-      onPress={() => (navigation as any).navigate('UserDetails', { userId: item.id })}
-    >
-      <View style={styles.userCardHeader}>
-        <Text style={styles.userEmoji}>{getGenderEmoji(item.gender ?? "")}</Text>
-        <Text style={styles.profileStatus}>
-          {getProfileEmoji(item.profileComplete ?? false)}
-        </Text>
-      </View>
-      
-      <View style={styles.userInfo}>
-        <Text style={styles.userName} numberOfLines={1}>
-          {item.name || item.displayName || item.email || 'Mystery Student'}
-        </Text>
-        <Text style={styles.userSchool} numberOfLines={1}>
-          🏫 {item.schoolName || 'Unknown School'}
-        </Text>
-      </View>
-      
-      <View style={styles.userStats}>
-        <View style={styles.statBadge}>
-          <Text style={styles.statValue}>
-            {item.profileComplete ? 'Complete' : 'Pending'}
+  const renderUserCard = ({ item }: { item: User }) => {
+    const isCoach = COACH_EMAILS.includes(item.email ?? '');
+    return (
+      <TouchableOpacity 
+        style={styles.userCard} 
+        onPress={() => (navigation as any).navigate('UserDetails', { userId: item.id })}
+      >
+        <View style={styles.userCardHeader}>
+          <Text style={styles.userEmoji}>{getGenderEmoji(item.gender ?? "")}</Text>
+          <Text style={styles.profileStatus}>
+            {getProfileEmoji(item.profileComplete ?? false)}
           </Text>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.userInfo}>
+          <Text style={styles.userName} numberOfLines={1}>
+            {item.name || item.displayName || item.email || 'Mystery Student'}
+          </Text>
+          {!isCoach && (
+            <Text style={styles.userSchool} numberOfLines={1}>
+              🏫 {item.schoolName || 'Unknown School'}
+            </Text>
+          )}
+        </View>
+        <View style={styles.userStats}>
+          <View style={styles.statBadge}>
+            <Text style={styles.statValue}>
+              {item.profileComplete ? 'Complete' : 'Pending'}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Separate students and coaches
+  const students = users.filter(user => !COACH_EMAILS.includes(user.email));
+  const coaches = users.filter(user => COACH_EMAILS.includes(user.email));
 
   return (
-    <FlatList
+    <ScrollView 
       style={styles.container}
-      data={users}
-      keyExtractor={item => item.id}
-      renderItem={renderUserCard}
-      numColumns={2}
-      columnWrapperStyle={styles.row}
-      ListHeaderComponent={
-        <>
-          {/* Header Section */}
-          <View style={styles.header}>
-            <Text style={styles.welcomeText}>Admin Command Center</Text>
-            <Text style={styles.subtitle}>Managing Young Learners</Text>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutText}>🚪 Logout</Text>
-            </TouchableOpacity>
-          </View>
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header Section */}
+      <View style={styles.header}>
+        <Text style={styles.welcomeText}>Admin Command Center</Text>
+        <Text style={styles.subtitle}>Managing Young Learners</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>🚪 Logout</Text>
+        </TouchableOpacity>
+      </View>
 
-          {/* Manage Classes Button */}
-          <TouchableOpacity
-              style={styles.manageClassesButton}
-              onPress={() => (navigation as any).navigate('ManageClasses')}
-              activeOpacity={0.8}
-              >
-              <Text style={styles.buttonText}>Manage Classes</Text>
-              </TouchableOpacity>
-          <Text style={styles.manageClassesHint}>Click here to manage classes</Text>
+      {/* Manage Classes Button */}
+      <TouchableOpacity
+        style={styles.manageClassesButton}
+        onPress={() => (navigation as any).navigate('ManageClasses')}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.buttonText}>Manage Classes</Text>
+      </TouchableOpacity>
+      <Text style={styles.manageClassesHint}>Click here to manage classes</Text>
 
-          {/* Stats Section */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statIcon}>👥</Text>
-              <Text style={styles.statNumber}>{users.length}</Text>
-              <Text style={styles.statLabel}>Total Students</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statIcon}>✨</Text>
-              <Text style={styles.statNumber}>
-                {users.filter(user => user.profileComplete).length}
-              </Text>
-              <Text style={styles.statLabel}>Complete Profiles</Text>
-            </View>
-          </View>
-          {/* Users Section Title */}
-          <View style={styles.usersSection}>
-            <Text style={styles.sectionTitle}>🌟 Student Explorer</Text>
-          </View>
-        </>
-      }
-      ListEmptyComponent={
-        loading ? (
+      {/* Stats Section */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <Text style={styles.statIcon}>👥</Text>
+          <Text style={styles.statNumber}>{users.length}</Text>
+          <Text style={styles.statLabel}>Total Users</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statIcon}>✨</Text>
+          <Text style={styles.statNumber}>
+            {students.filter(user => user.profileComplete).length}
+          </Text>
+          <Text style={styles.statLabel}>Complete Student Profiles</Text>
+        </View>
+      </View>
+
+      {/* Student Explorer Section */}
+      <View style={styles.usersSection}>
+        <Text style={styles.sectionTitle}>🌟 Student Explorer</Text>
+        {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FF6B6B" />
             <Text style={styles.loadingText}>Loading amazing students...</Text>
           </View>
-        ) : (
+        ) : students.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyEmoji}>🔍</Text>
             <Text style={styles.emptyText}>No students found yet!</Text>
             <Text style={styles.emptySubtext}>They'll appear here once they join</Text>
           </View>
-        )
-      }
-      ListFooterComponent={<View style={{ height: 40 }} />}
-      showsVerticalScrollIndicator={false}
-      refreshing={loading}
-      onRefresh={fetchUsers}
-    />
+        ) : (
+          <View style={styles.gridContainer}>
+            {students.map((student, index) => (
+              <View key={student.id} style={styles.cardWrapper}>
+                {renderUserCard({ item: student })}
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Coaches Section */}
+      {coaches.length > 0 && (
+        <View style={styles.usersSection}>
+          <Text style={styles.sectionTitle}>🧑‍🏫 Coaches</Text>
+          <View style={styles.gridContainer}>
+            {coaches.map((coach, index) => (
+              <View key={coach.id} style={styles.cardWrapper}>
+                {renderUserCard({ item: coach })}
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFF',
+  },
+  scrollContent: {
+    paddingBottom: 60, // Add proper bottom padding
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  cardWrapper: {
+    width: '48%',
+    marginBottom: 16,
+  },
   manageClassesButton: {
     backgroundColor: '#4F46E5',
     paddingHorizontal: 32,
@@ -167,8 +204,8 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',      // <-- Add this line
-    width: 220,               // <-- Or set a fixed width
+    alignSelf: 'center',
+    width: 220,
     shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
@@ -194,14 +231,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontWeight: '500',
     letterSpacing: 0.2,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFF',
-  },
-  row: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
   },
   header: {
     backgroundColor: '#6366F1',
@@ -274,7 +303,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   usersSection: {
-    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 20,
   },
@@ -284,13 +312,12 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginBottom: 20,
     textAlign: 'center',
+    paddingHorizontal: 20,
   },
   userCard: {
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 20,
     borderRadius: 16,
-    marginBottom: 16,
-    width: '48%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -298,6 +325,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderLeftWidth: 4,
     borderLeftColor: '#10B981',
+    width: '100%',
   },
   userCardHeader: {
     flexDirection: 'row',

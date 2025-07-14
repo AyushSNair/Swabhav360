@@ -7,7 +7,10 @@ import {
   FlatList, 
   ActivityIndicator, 
   Alert,
-  ImageBackground
+  ImageBackground,
+  ScrollView,
+  SafeAreaView,
+  Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FIREBASE_AUTH } from '../../FirebaseConfig';
@@ -210,84 +213,77 @@ const CoachDashboard = () => {
             <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#fff', fontFamily: 'Nunito_700Bold' }}>{selectedClass.name} 🏫</Text>
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 12 }}>
-            <TouchableOpacity
-              style={{
-                backgroundColor: isViewingAttendance ? '#fff' : 'transparent',
-                borderRadius: 18,
-                paddingVertical: 14,
-                paddingHorizontal: 22,
-                marginHorizontal: 8,
-                alignItems: 'center',
-                flexDirection: 'row',
-                elevation: isViewingAttendance ? 4 : 0,
-                shadowColor: '#7C3AED',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: isViewingAttendance ? 0.10 : 0,
-                shadowRadius: 8,
-                borderWidth: isViewingAttendance ? 2 : 0,
-                borderColor: isViewingAttendance ? '#7C3AED' : 'transparent',
-              }}
-              onPress={() => {
-                setIsViewingAttendance(true);
-                setIsViewingSkills(false);
-                setIsViewingTasks(false);
-              }}
-            >
-              <MaterialIcons name="check-circle" size={22} color={isViewingAttendance ? '#7C3AED' : '#fff'} style={{ marginRight: 8 }} />
-              <Text style={{ color: isViewingAttendance ? '#7C3AED' : '#fff', fontWeight: '700', fontSize: 15, fontFamily: 'Nunito_700Bold' }}>Attendance ✅</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{
-                backgroundColor: isViewingSkills ? '#fff' : 'transparent',
-                borderRadius: 18,
-                paddingVertical: 14,
-                paddingHorizontal: 22,
-                marginHorizontal: 8,
-                alignItems: 'center',
-                flexDirection: 'row',
-                elevation: isViewingSkills ? 4 : 0,
-                shadowColor: '#7C3AED',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: isViewingSkills ? 0.10 : 0,
-                shadowRadius: 8,
-                borderWidth: isViewingSkills ? 2 : 0,
-                borderColor: isViewingSkills ? '#7C3AED' : 'transparent',
-              }}
-              onPress={() => {
-                setIsViewingAttendance(false);
-                setIsViewingSkills(true);
-                setIsViewingTasks(false);
-              }}
-            >
-              <MaterialIcons name="assessment" size={22} color={isViewingSkills ? '#7C3AED' : '#fff'} style={{ marginRight: 8 }} />
-              <Text style={{ color: isViewingSkills ? '#7C3AED' : '#fff', fontWeight: '700', fontSize: 15, fontFamily: 'Nunito_700Bold' }}>Skill Assessment 📊</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{
-                backgroundColor: isViewingTasks ? '#fff' : 'transparent',
-                borderRadius: 18,
-                paddingVertical: 14,
-                paddingHorizontal: 22,
-                marginHorizontal: 8,
-                alignItems: 'center',
-                flexDirection: 'row',
-                elevation: isViewingTasks ? 4 : 0,
-                shadowColor: '#7C3AED',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: isViewingTasks ? 0.10 : 0,
-                shadowRadius: 8,
-                borderWidth: isViewingTasks ? 2 : 0,
-                borderColor: isViewingTasks ? '#7C3AED' : 'transparent',
-              }}
-              onPress={() => {
-                setIsViewingAttendance(false);
-                setIsViewingSkills(false);
-                setIsViewingTasks(true);
-              }}
-            >
-              <MaterialIcons name="assignment" size={22} color={isViewingTasks ? '#7C3AED' : '#fff'} style={{ marginRight: 8 }} />
-              <Text style={{ color: isViewingTasks ? '#7C3AED' : '#fff', fontWeight: '700', fontSize: 15, fontFamily: 'Nunito_700Bold' }}>Tasks 📝</Text>
-            </TouchableOpacity>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', justifyContent: 'center' }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isViewingAttendance ? '#fff' : 'transparent',
+                  borderRadius: 16,
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  marginHorizontal: 4,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  borderWidth: isViewingAttendance ? 2 : 0,
+                  borderColor: isViewingAttendance ? '#7C3AED' : 'transparent',
+                  minWidth: 44,
+                  minHeight: 44,
+                }}
+                onPress={() => {
+                  setIsViewingAttendance(true);
+                  setIsViewingSkills(false);
+                  setIsViewingTasks(false);
+                }}
+              >
+                <MaterialIcons name="check-circle" size={20} color={isViewingAttendance ? '#7C3AED' : '#fff'} style={{ marginRight: 4 }} />
+                <Text style={{ color: isViewingAttendance ? '#7C3AED' : '#fff', fontWeight: '700', fontSize: 13 }}>Attendance</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isViewingSkills ? '#fff' : 'transparent',
+                  borderRadius: 16,
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  marginHorizontal: 4,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  borderWidth: isViewingSkills ? 2 : 0,
+                  borderColor: isViewingSkills ? '#7C3AED' : 'transparent',
+                  minWidth: 44,
+                  minHeight: 44,
+                }}
+                onPress={() => {
+                  setIsViewingAttendance(false);
+                  setIsViewingSkills(true);
+                  setIsViewingTasks(false);
+                }}
+              >
+                <MaterialIcons name="assessment" size={20} color={isViewingSkills ? '#7C3AED' : '#fff'} style={{ marginRight: 4 }} />
+                <Text style={{ color: isViewingSkills ? '#7C3AED' : '#fff', fontWeight: '700', fontSize: 13 }}>Skills</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isViewingTasks ? '#fff' : 'transparent',
+                  borderRadius: 16,
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  marginHorizontal: 4,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  borderWidth: isViewingTasks ? 2 : 0,
+                  borderColor: isViewingTasks ? '#7C3AED' : 'transparent',
+                  minWidth: 44,
+                  minHeight: 44,
+                }}
+                onPress={() => {
+                  setIsViewingAttendance(false);
+                  setIsViewingSkills(false);
+                  setIsViewingTasks(true);
+                }}
+              >
+                <MaterialIcons name="assignment" size={20} color={isViewingTasks ? '#7C3AED' : '#fff'} style={{ marginRight: 4 }} />
+                <Text style={{ color: isViewingTasks ? '#7C3AED' : '#fff', fontWeight: '700', fontSize: 13 }}>Tasks</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </LinearGradient>
         <Text style={{ fontSize: 18, fontWeight: '700', color: '#1F2937', marginTop: 28, marginLeft: 24, marginBottom: 12, fontFamily: 'Nunito_700Bold' }}>Students in this class 👦👧</Text>
@@ -352,16 +348,24 @@ const CoachDashboard = () => {
               <Text style={styles.welcomeText}>Welcome back,</Text>
               <Text style={styles.coachName}>Coach!</Text>
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                Alert.alert('Profile', 'Coach profile details coming soon!');
-              }}
-              activeOpacity={0.7}
-              accessibilityLabel="Coach Profile"
-              style={styles.avatar}
-            >
-              <MaterialIcons name="account-circle" size={48} color="#FFFFFF" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert('Profile', 'Coach profile details coming soon!');
+                }}
+                activeOpacity={0.7}
+                accessibilityLabel="Coach Profile"
+                style={styles.avatar}
+              >
+                <MaterialIcons name="account-circle" size={48} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.profileButton, { marginLeft: 12, backgroundColor: '#fff', borderRadius: 24, padding: 8 }]}
+                onPress={handleLogout}
+              >
+                <MaterialIcons name="logout" size={22} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
           </View>
           <Text style={styles.subtitle}>Manage your classes and track attendance</Text>
         </LinearGradient>
@@ -401,7 +405,7 @@ const CoachDashboard = () => {
         {/* Content will be shown here */}
         
         {/* Content Area */}
-        <View style={styles.contentContainer}>
+        <View style={[styles.contentContainer, { paddingBottom: 72 }]}>
           {activeTab === 'classes' ? (
             <View style={{ flex: 1 }}>
               <View style={styles.sectionHeader}>
@@ -497,71 +501,56 @@ const CoachDashboard = () => {
         </View>
         
         {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity 
-            style={[styles.navButton, activeTab === 'classes' && styles.activeNavButton]}
-            onPress={() => setActiveTab('classes')}
-          >
-            <MaterialIcons 
-              name="class" 
-              size={24} 
-              color={activeTab === 'classes' ? '#4F46E5' : '#6B7280'} 
-            />
-            <Text style={[styles.navButtonText, activeTab === 'classes' && styles.activeNavButtonText]}>
-              Classes
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.navButton, activeTab === 'attendance' && styles.activeNavButton]}
-            onPress={() => setActiveTab('attendance')}
-          >
-            <MaterialIcons 
-              name="check-circle" 
-              size={24} 
-              color={activeTab === 'attendance' ? '#4F46E5' : '#6B7280'} 
-            />
-            <Text style={[styles.navButtonText, activeTab === 'attendance' && styles.activeNavButtonText]}>
-              Attendance
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.navButton, activeTab === 'skills' && styles.activeNavButton]}
-            onPress={() => setActiveTab('skills')}
-          >
-            <MaterialIcons 
-              name="assessment" 
-              size={24} 
-              color={activeTab === 'skills' ? '#4F46E5' : '#6B7280'} 
-            />
-            <Text style={[styles.navButtonText, activeTab === 'skills' && styles.activeNavButtonText]}>
-              Skills
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.navButton, activeTab === 'tasks' && styles.activeNavButton]}
-            onPress={() => setActiveTab('tasks')}
-          >
-            <MaterialIcons 
-              name="assignment" 
-              size={24} 
-              color={activeTab === 'tasks' ? '#4F46E5' : '#6B7280'} 
-            />
-            <Text style={[styles.navButtonText, activeTab === 'tasks' && styles.activeNavButtonText]}>
-              Tasks
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.profileButton}
-            onPress={handleLogout}
-          >
-            <MaterialIcons name="logout" size={24} color="#EF4444" />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView style={{ backgroundColor: '#fff', paddingBottom: Platform.OS === 'android' ? 24 : 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <TouchableOpacity 
+                style={[styles.navButton, activeTab === 'classes' && styles.activeNavButton, { minWidth: 60, minHeight: 44, marginHorizontal: 4 }]}
+                onPress={() => setActiveTab('classes')}
+              >
+                <MaterialIcons 
+                  name="class" 
+                  size={22} 
+                  color={activeTab === 'classes' ? '#4F46E5' : '#6B7280'} 
+                />
+                <Text style={[styles.navButtonText, activeTab === 'classes' && styles.activeNavButtonText, { fontSize: 13 }]}>Classes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.navButton, activeTab === 'attendance' && styles.activeNavButton, { minWidth: 60, minHeight: 44, marginHorizontal: 4 }]}
+                onPress={() => setActiveTab('attendance')}
+              >
+                <MaterialIcons 
+                  name="check-circle" 
+                  size={22} 
+                  color={activeTab === 'attendance' ? '#4F46E5' : '#6B7280'} 
+                />
+                <Text style={[styles.navButtonText, activeTab === 'attendance' && styles.activeNavButtonText, { fontSize: 13 }]}>Attendance</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.navButton, activeTab === 'skills' && styles.activeNavButton, { minWidth: 60, minHeight: 44, marginHorizontal: 4 }]}
+                onPress={() => setActiveTab('skills')}
+              >
+                <MaterialIcons 
+                  name="assessment" 
+                  size={22} 
+                  color={activeTab === 'skills' ? '#4F46E5' : '#6B7280'} 
+                />
+                <Text style={[styles.navButtonText, activeTab === 'skills' && styles.activeNavButtonText, { fontSize: 13 }]}>Skills</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.navButton, activeTab === 'tasks' && styles.activeNavButton, { minWidth: 60, minHeight: 44, marginHorizontal: 4 }]}
+                onPress={() => setActiveTab('tasks')}
+              >
+                <MaterialIcons 
+                  name="assignment" 
+                  size={22} 
+                  color={activeTab === 'tasks' ? '#4F46E5' : '#6B7280'} 
+                />
+                <Text style={[styles.navButtonText, activeTab === 'tasks' && styles.activeNavButtonText, { fontSize: 13 }]}>Tasks</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
       </View>
     );
   };

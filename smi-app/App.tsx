@@ -116,12 +116,12 @@ function AppContent() {
         <Stack.Screen
           name="UserDetails"
           component={UserDetailsScreen}
-          options={{ headerShown: true, title: 'User Details' }}
+          options={{ headerShown: false, title: 'User Details' }}
         />
         <Stack.Screen
           name="SessionDetails"
           component={SessionDetailsScreen}
-          options={{ headerShown: true, title: 'Session Details' }}
+          options={{ headerShown: false, title: 'Session Details' }}
         />
         <Stack.Screen
           name="SessionEntry"

@@ -10,12 +10,15 @@ import {
   Alert, 
   ActivityIndicator,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { collection, doc, setDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { FIRESTORE_DB } from '../../FirebaseConfig';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 interface Student {
   id: string;
@@ -144,69 +147,165 @@ const Tasks: React.FC<TasksProps> = ({ selectedClass, onBack }) => {
     setShowAddTask(true);
   };
 
-  const renderTaskItem = ({ item }: { item: Task }) => (
-    <View style={styles.taskCardModern}>
-      <LinearGradient
-        colors={["#7C3AED", "#4F46E5"]}
-        style={styles.taskIconCircle}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <MaterialIcons name="assignment" size={24} color="#fff" />
-      </LinearGradient>
-      <View style={styles.taskContentModern}>
-        <Text style={styles.taskTitleModern}>{`📝 ${item.title}`}</Text>
-        <Text style={styles.taskDescModern}>{item.description}</Text>
-        <Text style={styles.taskDueModern}>Due: {item.dueDate.toLocaleDateString()}</Text>
-        <View style={styles.taskAssignedRow}>
-          <Text style={styles.taskAssignedLabel}>Assigned to 👦👧:</Text>
-          {item.assignedTo.map((userId, idx) => {
-            const student = selectedClass.students.find(s => s.id === userId);
-            return student ? (
-              <View key={userId} style={styles.taskUserChip}>
-                <Text style={styles.taskUserChipText}>{`🧑‍🎓 ${student.name}`}</Text>
+  const getTaskPriority = (dueDate: Date) => {
+    const now = new Date();
+    const diffTime = dueDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return 'overdue';
+    if (diffDays <= 2) return 'urgent';
+    if (diffDays <= 7) return 'medium';
+    return 'low';
+  };
+
+  const getPriorityColor = (priority: string): [string, string] => {
+    switch (priority) {
+      case 'overdue': return ['#EF4444', '#DC2626'];
+      case 'urgent': return ['#F59E0B', '#D97706'];
+      case 'medium': return ['#3B82F6', '#2563EB'];
+      default: return ['#10B981', '#059669'];
+    }
+  };
+
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case 'overdue': return 'error';
+      case 'urgent': return 'warning';
+      case 'medium': return 'schedule';
+      default: return 'check-circle';
+    }
+  };
+
+  const renderTaskItem = ({ item }: { item: Task }) => {
+    const priority = getTaskPriority(item.dueDate);
+    const priorityColors = getPriorityColor(priority);
+    const priorityIcon = getPriorityIcon(priority);
+
+    return (
+      <View style={styles.taskContainer}>
+        <LinearGradient
+          colors={['#FFFFFF', '#F8FAFC']}
+          style={styles.taskCard}
+        >
+          <View style={styles.taskHeader}>
+            <LinearGradient
+              colors={priorityColors}
+              style={styles.priorityBadge}
+            >
+              <MaterialIcons name={priorityIcon} size={16} color="#FFFFFF" />
+            </LinearGradient>
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={() => handleEditTask(item)}
+            >
+              <MaterialIcons name="edit" size={20} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.taskContent}>
+            <Text style={styles.taskTitle}>{item.title}</Text>
+            <Text style={styles.taskDescription}>{item.description}</Text>
+            
+            <View style={styles.taskMeta}>
+              <View style={styles.dueDateContainer}>
+                <MaterialIcons name="schedule" size={16} color="#6B7280" />
+                <Text style={styles.dueDateText}>
+                  {item.dueDate.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </Text>
               </View>
-            ) : null;
-          })}
-        </View>
+            </View>
+
+            <View style={styles.assignedContainer}>
+              <Text style={styles.assignedLabel}>Assigned to:</Text>
+              <View style={styles.studentsContainer}>
+                {(!item.assignedTo || item.assignedTo.length === 0) ? (
+                  <Text style={styles.noStudentsText}>All students</Text>
+                ) : (
+                  (() => {
+                    // Find all matching students
+                    const assignedNames = (item.assignedTo || [])
+                      .map(userId => {
+                        const student = selectedClass.students.find(s => s.id === userId);
+                        return student ? student.name : null;
+                      })
+                      .filter(Boolean);
+
+                    if (assignedNames.length > 0) {
+                      return (
+                        <Text style={styles.studentNameText}>
+                          {assignedNames.join(', ')}
+                        </Text>
+                      );
+                    } else {
+                      return (
+                        <Text style={styles.noStudentsText}>(Unknown students)</Text>
+                      );
+                    }
+                  })()
+                )}
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
       </View>
-      <TouchableOpacity style={styles.taskEditButton} onPress={() => handleEditTask(item)}>
-        <MaterialIcons name="edit" size={20} color="#7C3AED" />
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color="#4F46E5" />
-          <Text style={styles.backButtonText}>⬅️ Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Task Management 📝</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => setShowAddTask(true)}
-        >
-          <MaterialIcons name="add" size={24} color="#FFFFFF" />
-          <Text style={styles.addTaskButtonText}>Add Task ➕</Text>
-        </TouchableOpacity>
-      </View>
+      <LinearGradient
+        colors={['#667EEA', '#764BA2']}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Task Manager</Text>
+            <Text style={styles.subtitle}>{selectedClass.name}</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setShowAddTask(true)}
+          >
+            <MaterialIcons name="add" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#4F46E5" style={styles.loader} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#667EEA" />
+          <Text style={styles.loadingText}>Loading tasks...</Text>
+        </View>
       ) : tasks.length === 0 ? (
-        <View style={styles.emptyStateModern}>
-          <MaterialIcons name="assignment" size={64} color="#E0E7FF" />
-          <Text style={styles.emptyTitleModern}>No tasks yet 💤</Text>
-          <Text style={styles.emptyTextModern}>Add a new task to get started!</Text>
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconContainer}>
+            <MaterialIcons name="assignment" size={80} color="#E5E7EB" />
+          </View>
+          <Text style={styles.emptyTitle}>No tasks yet</Text>
+          <Text style={styles.emptyDescription}>
+            Create your first task to get started with managing assignments
+          </Text>
+          <TouchableOpacity 
+            style={styles.emptyButton}
+            onPress={() => setShowAddTask(true)}
+          >
+            <Text style={styles.emptyButtonText}>Create Task</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={tasks}
           renderItem={renderTaskItem}
           keyExtractor={item => item.id}
-          contentContainerStyle={styles.taskList}
+          contentContainerStyle={styles.tasksList}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
@@ -219,46 +318,60 @@ const Tasks: React.FC<TasksProps> = ({ selectedClass, onBack }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
+            <LinearGradient
+              colors={['#667EEA', '#764BA2']}
+              style={styles.modalHeader}
+            >
               <Text style={styles.modalTitle}>
                 {editingTask ? 'Edit Task' : 'Create New Task'}
               </Text>
-              <TouchableOpacity onPress={resetForm}>
-                <MaterialIcons name="close" size={24} color="#6B7280" />
+              <TouchableOpacity onPress={resetForm} style={styles.closeButton}>
+                <MaterialIcons name="close" size={24} color="#FFFFFF" />
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
-            <ScrollView style={styles.formContainer}>
-              <Text style={styles.label}>Task Title</Text>
-              <TextInput
-                style={styles.input}
-                value={taskTitle}
-                onChangeText={setTaskTitle}
-                placeholder="Enter task title"
-                placeholderTextColor="#9CA3AF"
-              />
+            <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Task Title</Text>
+                <TextInput
+                  style={styles.input}
+                  value={taskTitle}
+                  onChangeText={setTaskTitle}
+                  placeholder="Enter task title"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
 
-              <Text style={styles.label}>Description</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={taskDescription}
-                onChangeText={setTaskDescription}
-                placeholder="Enter task description"
-                placeholderTextColor="#9CA3AF"
-                multiline
-                numberOfLines={4}
-              />
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Description</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={taskDescription}
+                  onChangeText={setTaskDescription}
+                  placeholder="Enter task description"
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
 
-              <Text style={styles.label}>Due Date</Text>
-              <TouchableOpacity 
-                style={styles.dateInput}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text style={styles.dateText}>
-                  {dueDate.toLocaleDateString()}
-                </Text>
-                <MaterialIcons name="event" size={20} color="#6B7280" />
-              </TouchableOpacity>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Due Date</Text>
+                <TouchableOpacity 
+                  style={styles.dateButton}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <MaterialIcons name="event" size={20} color="#667EEA" />
+                  <Text style={styles.dateButtonText}>
+                    {dueDate.toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                  <MaterialIcons name="expand-more" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
 
               {showDatePicker && (
                 <DateTimePicker
@@ -274,25 +387,35 @@ const Tasks: React.FC<TasksProps> = ({ selectedClass, onBack }) => {
                 />
               )}
 
-              <Text style={styles.label}>Assign To</Text>
-              <View style={styles.studentsList}>
-                {selectedClass.students.map(student => (
-                  <TouchableOpacity
-                    key={student.id}
-                    style={[
-                      styles.studentChip,
-                      selectedStudents.includes(student.id) && styles.selectedStudentChip
-                    ]}
-                    onPress={() => toggleStudentSelection(student.id)}
-                  >
-                    <Text style={[
-                      styles.studentChipText,
-                      selectedStudents.includes(student.id) && styles.selectedStudentChipText
-                    ]}>
-                      {student.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Assign To Students</Text>
+                <View style={styles.studentsGrid}>
+                  {selectedClass.students.map(student => (
+                    <TouchableOpacity
+                      key={student.id}
+                      style={[
+                        styles.studentOption,
+                        selectedStudents.includes(student.id) && styles.selectedStudent
+                      ]}
+                      onPress={() => toggleStudentSelection(student.id)}
+                    >
+                      <View style={[
+                        styles.studentCheckbox,
+                        selectedStudents.includes(student.id) && styles.selectedCheckbox
+                      ]}>
+                        {selectedStudents.includes(student.id) && (
+                          <MaterialIcons name="check" size={16} color="#FFFFFF" />
+                        )}
+                      </View>
+                      <Text style={[
+                        styles.studentName,
+                        selectedStudents.includes(student.id) && styles.selectedStudentName
+                      ]}>
+                        {student.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             </ScrollView>
 
@@ -309,13 +432,18 @@ const Tasks: React.FC<TasksProps> = ({ selectedClass, onBack }) => {
                 onPress={handleSaveTask}
                 disabled={loading}
               >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.saveButtonText}>
-                    {editingTask ? 'Update Task' : 'Create Task'}
-                  </Text>
-                )}
+                <LinearGradient
+                  colors={['#667EEA', '#764BA2']}
+                  style={styles.saveButtonGradient}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>
+                      {editingTask ? 'Update Task' : 'Create Task'}
+                    </Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -328,127 +456,203 @@ const Tasks: React.FC<TasksProps> = ({ selectedClass, onBack }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
   },
   header: {
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: '#4F46E5',
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  addButton: {
-    backgroundColor: '#4F46E5',
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loader: {
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B7280',
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 40,
   },
-  emptyText: {
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  emptyDescription: {
     fontSize: 16,
     color: '#6B7280',
-    marginTop: 16,
-    marginBottom: 24,
     textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
   },
-  primaryButton: {
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+  emptyButton: {
+    backgroundColor: '#667EEA',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
   },
-  primaryButtonText: {
+  emptyButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  taskList: {
+  tasksList: {
     padding: 16,
+  },
+  taskContainer: {
+    marginBottom: 16,
   },
   taskCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    position: 'relative',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   taskHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    flex: 1,
-    marginRight: 8,
-  },
-
-  taskDescription: {
-    fontSize: 14,
-    color: '#4B5563',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  dueDate: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 12,
-  },
-  assignedToContainer: {
-    marginTop: 8,
-  },
-  assignedToTitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  assignedStudent: {
-    fontSize: 12,
-    color: '#4B5563',
-    marginLeft: 4,
+  priorityBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   editButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  taskContent: {
+    flex: 1,
+  },
+  taskTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  taskDescription: {
+    fontSize: 16,
+    color: '#6B7280',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  taskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dueDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dueDateText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginLeft: 8,
+  },
+  assignedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  assignedLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  studentsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  studentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#667EEA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  studentInitial: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  moreStudents: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  moreStudentsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   modalOverlay: {
     flex: 1,
@@ -457,253 +661,156 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: '90%',
-    padding: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   formContainer: {
-    marginBottom: 16,
+    padding: 20,
+  },
+  inputGroup: {
+    marginBottom: 24,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
     color: '#111827',
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
   },
-  dateInput: {
+  dateButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  dateText: {
-    fontSize: 14,
+  dateButtonText: {
+    flex: 1,
+    fontSize: 16,
     color: '#111827',
+    marginLeft: 12,
   },
-  studentsList: {
+  studentsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 16,
+    marginTop: 8,
   },
-  studentChip: {
-    backgroundColor: '#E5E7EB',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  studentOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  selectedStudent: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#667EEA',
+  },
+  studentCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 8,
-    marginBottom: 8,
   },
-  selectedStudentChip: {
-    backgroundColor: '#4F46E5',
+  selectedCheckbox: {
+    backgroundColor: '#667EEA',
+    borderColor: '#667EEA',
   },
-  studentChipText: {
-    fontSize: 12,
-    color: '#4B5563',
+  studentName: {
+    fontSize: 14,
+    color: '#6B7280',
   },
-  selectedStudentChipText: {
-    color: '#FFFFFF',
+  selectedStudentName: {
+    color: '#667EEA',
+    fontWeight: '600',
   },
   modalFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 16,
+    justifyContent: 'space-between',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
   },
   cancelButton: {
-    padding: 12,
-    marginRight: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    marginRight: 12,
   },
   cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#6B7280',
-    fontSize: 14,
-    fontWeight: '500',
   },
   saveButton: {
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 20,
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  saveButtonGradient: {
+    paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
-    minWidth: 120,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  taskCardModern: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    marginBottom: 18,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 10,
-    elevation: 5,
-    borderLeftWidth: 6,
-    borderLeftColor: '#7C3AED',
-  },
-  taskIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  taskContentModern: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  taskTitleModern: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#3730A3',
-    marginBottom: 2,
-  },
-  taskDescModern: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  taskDueModern: {
-    fontSize: 13,
-    color: '#6366F1',
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  taskAssignedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginTop: 2,
-  },
-  taskAssignedLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginRight: 6,
-  },
-  taskUserChip: {
-    backgroundColor: '#EEF2FF',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginRight: 6,
-    marginBottom: 2,
-  },
-  taskUserChipText: {
-    fontSize: 13,
-    color: '#4F46E5',
-    fontWeight: '600',
-  },
-  taskEditButton: {
-    marginLeft: 10,
-    marginTop: 2,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 16,
-    padding: 8,
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.10,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 32,
-    right: 32,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 8,
-    zIndex: 100,
-  },
-  fabGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyStateModern: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyTitleModern: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyTextModern: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 280,
-  },
-  addTaskButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  backButtonTextModern: {
-    color: '#4F46E5',
-    marginLeft: 8,
     fontSize: 16,
-    fontWeight: '500',
-  },
-  saveButtonTextModern: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  sectionTitle: {
-    fontSize: 20,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
-    textAlign: 'center',
+    color: '#FFFFFF',
+  },
+  studentNameText: {
+    fontSize: 14,
+    color: '#374151',
+    marginRight: 4,
+  },
+  noStudentsText: {
+    fontSize: 14,
+    color: '#9CA3AF',
   },
 });
 

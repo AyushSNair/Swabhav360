@@ -353,12 +353,12 @@ const SkillAssessment: React.FC<SkillAssessmentProps> = ({ selectedClass, onBack
                   {error && <Text style={styles.errorText}>{error}</Text>}
                   <View style={styles.buttonRowModern}>
                     <TouchableOpacity style={styles.cancelButtonModern} onPress={() => setShowAssessmentForm(false)}>
-                      <MaterialIcons name="close" size={20} color="#fff" />
+                      <MaterialIcons name="close" size={20} color="#7C3AED" />
                       <Text style={styles.cancelButtonTextModern}>❌ Cancel</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.saveButtonModern} onPress={handleSaveAssessment} disabled={loading}>
-                      <MaterialIcons name="save" size={20} color="#fff" />
-                      <Text style={styles.saveButtonTextModern}>{loading ? 'Saving...' : 'Save Assessment ✅'}</Text>
+                      <MaterialIcons name="save" size={20} color="#10B981" />
+                      <Text style={styles.saveButtonTextModern}>{loading ? 'Saving...' : 'Save ✅'}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -491,6 +491,7 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     paddingBottom: 40,
+    paddingTop: 8,
   },
   formContainer: {
     padding: 20,
@@ -614,6 +615,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 24,
+    marginBottom: 8,
+    paddingHorizontal: 12,
   },
   backButtonModern: {
     flexDirection: 'row',
@@ -621,8 +624,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366F1',
     borderRadius: 16,
     paddingVertical: 12,
-    paddingHorizontal: 22,
-    marginRight: 10,
+    paddingHorizontal: 18,
+    marginRight: 8,
+    borderWidth: 2,
+    borderColor: '#6366F1',
     shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.10,
@@ -638,10 +643,12 @@ const styles = StyleSheet.create({
   saveButtonModern: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#10B981',
+    backgroundColor: '#fff',
     borderRadius: 16,
     paddingVertical: 12,
-    paddingHorizontal: 22,
+    paddingHorizontal: 18,
+    borderWidth: 2,
+    borderColor: '#10B981',
     shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.10,
@@ -649,7 +656,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   saveButtonTextModern: {
-    color: '#fff',
+    color: '#10B981',
     fontWeight: '700',
     fontSize: 15,
     marginLeft: 8,
@@ -657,12 +664,14 @@ const styles = StyleSheet.create({
   assessmentFormCard: {
     backgroundColor: '#fff',
     borderRadius: 24,
-    margin: 18,
+    marginTop: 32,
+    marginHorizontal: 16,
+    marginBottom: 18,
     shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.13,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 10,
     overflow: 'hidden',
   },
   assessmentFormHeader: {
@@ -683,6 +692,7 @@ const styles = StyleSheet.create({
   },
   assessmentFormBody: {
     padding: 22,
+    paddingBottom: 10,
   },
   inputGroup: {
     flexDirection: 'row',
@@ -701,17 +711,20 @@ const styles = StyleSheet.create({
     color: '#3730A3',
     paddingVertical: 10,
     backgroundColor: 'transparent',
+    // Ensure editable look
+    borderWidth: 0,
   },
   ratingLabel: {
     fontSize: 15,
     fontWeight: '600',
     color: '#6366F1',
-    marginBottom: 6,
+    marginBottom: 12,
+    marginTop: 12,
   },
   ratingRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 12,
   },
   ratingStar: {
     transform: [{ scale: 1 }],
@@ -726,7 +739,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6366F1',
     fontWeight: '600',
-    marginBottom: 10,
+    marginBottom: 18,
   },
   errorText: {
     color: '#EF4444',
@@ -738,11 +751,13 @@ const styles = StyleSheet.create({
   cancelButtonModern: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#fff',
     borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 22,
-    marginRight: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 18,
+    marginRight: 8,
+    borderWidth: 2,
+    borderColor: '#7C3AED',
     shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.10,
@@ -750,10 +765,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cancelButtonTextModern: {
-    color: '#fff',
+    color: '#7C3AED',
     fontWeight: '700',
     fontSize: 15,
-    marginLeft: 8,
+    marginLeft: 2,
   },
 });
 

@@ -4,14 +4,7 @@ import { FIRESTORE_DB } from '../../FirebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRoute } from '@react-navigation/native';
 
-const questionTextMap: { [key: string]: string } = {
-  '1': 'Did you complete your daily exercise?',
-  '2': 'Did you meditate today?',
-  '3': 'Did you eat a healthy meal?',
-  '4': 'Did you read for 10 minutes?',
-  '5': 'Did you practice gratitude?',
-  '6': 'Did you help someone today?',
-};
+
 
 const SessionEntryScreen = () => {
   const route = useRoute();
@@ -218,7 +211,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   overviewCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#e4ffaa',
     borderRadius: 12,
     padding: 20,
     shadowColor: '#000',
@@ -265,7 +258,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   questionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -318,7 +311,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   answerContent: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'lightyellow',
     borderRadius: 8,
     padding: 12,
   },

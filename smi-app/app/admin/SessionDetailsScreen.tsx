@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   statsContainer: {
-    backgroundColor: 'white',
+    backgroundColor: 'lightyellow',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
