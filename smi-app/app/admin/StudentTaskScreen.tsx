@@ -3,8 +3,6 @@ import { View, Text, Button, FlatList, ActivityIndicator, Alert, StyleSheet, Tex
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { createTask, getTasks, deleteTask } from '../../services/classService';
 
-
-
 export default function StudentTaskScreen() {
   const route = useRoute();
   const navigation = useNavigation();
@@ -106,7 +104,6 @@ export default function StudentTaskScreen() {
       date = dateValue;
     }
     if (date && !isNaN(date.getTime())) {
-      // Always return YYYY-MM-DD
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     }
     return 'Invalid date';
@@ -129,6 +126,20 @@ export default function StudentTaskScreen() {
       default: return '#F3F4F6';
     }
   }
+
+  // Group tasks by due date
+  const groupedTasks = tasks.reduce((acc, task) => {
+    const dateKey = task.dueDate ? formatDate(task.dueDate) : 'No due date';
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(task);
+    return acc;
+  }, {} as Record<string, any[]>);
+  
+  const sortedDates = Object.keys(groupedTasks).sort((a, b) => {
+    if (a === 'No due date') return 1;
+    if (b === 'No due date') return -1;
+    return new Date(a).getTime() - new Date(b).getTime();
+  });
 
   return (
     <KeyboardAvoidingView
@@ -177,44 +188,52 @@ export default function StudentTaskScreen() {
               </View>
             ) : (
               <View style={styles.cardList}>
-                {tasks.map(item => (
-                  <View style={styles.taskCard} key={item.id}>
-                    <View style={styles.taskCardHeader}>
-                      <View style={styles.taskTitleContainer}>
-                        <Text style={styles.taskTitle}>{item.title}</Text>
-                        <View style={[styles.statusBadge, { backgroundColor: getStatusBackgroundColor(item.status || 'active') }]}> 
-                          <Text style={[styles.statusText, { color: getStatusColor(item.status || 'active') }]}> 
-                            {item.status || 'active'}
-                          </Text>
+                {sortedDates.map(dateKey => (
+                  <View key={dateKey} style={{ marginBottom: 18 }}>
+                    <Text style={styles.dateGroupHeader}>{dateKey}</Text>
+                    {groupedTasks[dateKey].map((item: any) => {
+                      const isCompleted = Array.isArray(item.completedStudents) && item.completedStudents.includes(studentId);
+                      return (
+                        <View style={[styles.taskCard, isCompleted && styles.completedTaskCard]} key={item.id}>
+                          <View style={styles.taskCardHeader}>
+                            <View style={styles.taskTitleContainer}>
+                              <Text style={styles.taskTitle}>{item.title}</Text>
+                              <View style={[styles.statusBadge, { backgroundColor: getStatusBackgroundColor(isCompleted ? 'completed' : (item.status || 'active')) }]}> 
+                                <Text style={[styles.statusText, { color: getStatusColor(isCompleted ? 'completed' : (item.status || 'active')) }]}> 
+                                  {isCompleted ? 'completed' : (item.status || 'active')}
+                                </Text>
+                              </View>
+                            </View>
+                            {/* Only show delete for backend tasks (not hardcoded coach tasks) */}
+                            {!item.assignedBy && (
+                              <TouchableOpacity 
+                                style={styles.deleteButton}
+                                onPress={() => handleDeleteTask(item.id, item.title)}
+                              >
+                                <Text style={styles.deleteButtonText}>×</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                          
+                          {item.description && (
+                            <Text style={styles.taskDescription}>{item.description}</Text>
+                          )}
+                          
+                          <View style={styles.taskFooter}>
+                            <View style={styles.taskDetail}>
+                              <Text style={styles.taskDetailIcon}>📅</Text>
+                              <Text style={styles.taskDetailText}>Due: {formatDate(item.dueDate)}</Text>
+                            </View>
+                            {item.assignedBy && (
+                              <View style={styles.taskDetail}>
+                                <Text style={styles.taskDetailIcon}>👨‍🏫</Text>
+                                <Text style={styles.taskDetailText}>Assigned by: {item.assignedBy}</Text>
+                              </View>
+                            )}
+                          </View>
                         </View>
-                      </View>
-                      {/* Only show delete for backend tasks (not hardcoded coach tasks) */}
-                      {!item.assignedBy && (
-                        <TouchableOpacity 
-                          style={styles.deleteButton}
-                          onPress={() => handleDeleteTask(item.id, item.title)}
-                        >
-                          <Text style={styles.deleteButtonText}>×</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    
-                    {item.description && (
-                      <Text style={styles.taskDescription}>{item.description}</Text>
-                    )}
-                    
-                    <View style={styles.taskFooter}>
-                      <View style={styles.taskDetail}>
-                        <Text style={styles.taskDetailIcon}>📅</Text>
-                        <Text style={styles.taskDetailText}>Due: {formatDate(item.dueDate)}</Text>
-                      </View>
-                      {item.assignedBy && (
-                        <View style={styles.taskDetail}>
-                          <Text style={styles.taskDetailIcon}>👨‍🏫</Text>
-                          <Text style={styles.taskDetailText}>Assigned by: {item.assignedBy}</Text>
-                        </View>
-                      )}
-                    </View>
+                      );
+                    })}
                   </View>
                 ))}
               </View>
@@ -384,6 +403,12 @@ const styles = StyleSheet.create({
   cardList: { 
     gap: 16 
   },
+  dateGroupHeader: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#4f46e5',
+    marginBottom: 6,
+  },
   taskCard: { 
     backgroundColor: '#FFFFFF', 
     padding: 20, 
@@ -395,6 +420,12 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: '#F3F4F6',
+    marginBottom: 12,
+  },
+  completedTaskCard: {
+    backgroundColor: '#d1fae5',
+    borderColor: '#10b981',
+    borderWidth: 1,
   },
   taskCardHeader: {
     flexDirection: 'row',
@@ -489,7 +520,6 @@ const styles = StyleSheet.create({
     borderRadius: 12, 
     fontSize: 15,
     color: '#1F2937',
-    // transition: 'border-color 0.2s',
   },
   textArea: { 
     height: 100,

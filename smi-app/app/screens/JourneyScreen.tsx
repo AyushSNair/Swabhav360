@@ -18,6 +18,7 @@ import {
   FlatList,
   ImageBackground,
   ActivityIndicator,
+  Alert,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { LinearGradient } from "expo-linear-gradient"
@@ -84,10 +85,10 @@ const initialQuests: Quests = {
     { id: "mng_6", text: "Thanked God your creator?", points: 3 },
   ],
   workout: [
-    { id: "wrk_1", text: "25 Pushups", points: 3, isCounter: true },
-    { id: "wrk_2", text: "25 Pullups", points: 3, isCounter: true },
-    { id: "wrk_3", text: "25 Glute Bridges", points: 3, isCounter: true },
-    { id: "wrk_4", text: "25 Squats", points: 3, isCounter: true },
+    { id: "wrk_1", text: "25 Pushups", points: 3, isCounter: false, isInput: true, max: 999 },
+    { id: "wrk_2", text: "25 Pullups", points: 3, isCounter: false, isInput: true, max: 999 },
+    { id: "wrk_3", text: "25 Glute Bridges", points: 3, isCounter: false, isInput: true, max: 999 },
+    { id: "wrk_4", text: "25 Squats", points: 3, isCounter: false, isInput: true, max: 999 },
     { id: "wrk_5", text: "Juggling", points: 5, isInput: true, max: 999 },
     { id: "wrk_6", text: "Practiced only with team members", points: 3 },
   ],
@@ -310,7 +311,8 @@ function CardStack({
   const currentTask = tasks[currentTaskIndex];
   const nextTask = currentTaskIndex < totalTasks - 1 ? tasks[currentTaskIndex + 1] : null;
   const taskState = questState[currentTask.id] || {};
-  const isTaskDone = taskState.checked || taskState.skipped;
+const isTaskDone = taskState.checked;
+const isTaskSkipped = taskState.skipped;
   const [anim] = React.useState(new Animated.Value(0));
 
   // Animate card transition
@@ -320,32 +322,48 @@ function CardStack({
       Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
     ]).start();
   };
+
   React.useEffect(() => { anim.setValue(0); }, [currentTaskIndex]);
 
   const handleDone = () => {
-    // Always set checked: true for all task types
+  // For skipped tasks, we need to remove the skipped flag and mark as checked
+  if (isTaskSkipped) {
+    // Remove skipped flag and mark as done
     onToggle(period, currentTask.id);
-    // Card transition is now handled after overlay hides
-  };
+  } else {
+    // Normal completion
+    onToggle(period, currentTask.id);
+  }
+};
 
-  // Hide overlay and move to next card
-  const handleCelebrationHide = () => {
+// Handle "Not Done" button - this should skip the task
+const handleNotDone = () => {
+  if (isTaskSkipped) {
+    // If already skipped, move to next task without changing state
+    moveToNextTask();
+  } else {
+    // Skip the task
+    onSkipTask(period, currentTask.id);
+    moveToNextTask();
+  }
+};
+
+const moveToNextTask = () => {
     if (currentTaskIndex === totalTasks - 1) {
-      // Last task, auto-submit session
+    // Last task, check if we should auto-submit
       if (!isSessionSubmitted) {
         handleSessionSubmit(period);
       }
-      // No need to advance index, UI will move to next period automatically
     } else {
+    // Move to next task
       animateNext();
       setTimeout(() => setCurrentTaskIndex(currentTaskIndex + 1), 250);
     }
   };
 
-  const handleSkip = () => {
-    onSkipTask(period, currentTask.id);
-    animateNext();
-    setTimeout(() => setCurrentTaskIndex(currentTaskIndex + 1), 250);
+// Hide overlay and move to next card
+const handleCelebrationHide = () => {
+  moveToNextTask();
   };
 
   // Card backgrounds
@@ -377,7 +395,17 @@ function CardStack({
           transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -40] }) }],
           opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.7] }),
         }}>
-          <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 10 }}>{i18n.t(currentTask.id)}</Text>
+        <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 10 }}>
+          {i18n.t(currentTask.id)}
+        </Text>
+        
+        {/* Show status for skipped tasks */}
+        {isTaskSkipped && !isTaskDone && (
+          <Text style={{ color: '#fbbf24', fontSize: 14, marginBottom: 8, fontStyle: 'italic' }}>
+            Previously skipped - you can now complete it!
+          </Text>
+        )}
+        
           {/* Input fields for all isInput tasks */}
           {currentTask.isInput && (
             period === 'workout' && ['1','2','3','4','5'].includes(currentTask.id) ? (
@@ -399,7 +427,7 @@ function CardStack({
                 style={[styles.textInput, { marginTop: 12, marginBottom: 8, minHeight: 60, maxHeight: 120, textAlignVertical: 'top' }]}
                 value={taskState.value || ''}
                 onChangeText={text => onInput(period, currentTask.id, text)}
-                placeholder={i18n.t('describe_situation')}
+              placeholder='describe_situation'
                 editable={!isTaskDone && !isSessionSubmitted}
                 multiline
                 numberOfLines={4}
@@ -407,48 +435,72 @@ function CardStack({
               />
             )
           )}
+        
           {/* Counter UI for isCounter tasks */}
           {currentTask.isCounter && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 }}>
               <TouchableOpacity
                 style={[styles.counterButton, { marginRight: 8 }]} 
-                onPress={() => {
-                  console.log('Counter - pressed', period, currentTask.id);
-                  onCounter(period, currentTask.id, -1);
-                }}
+              onPress={() => onCounter(period, currentTask.id, -1)}
                 disabled={isTaskDone || isSessionSubmitted}
               >
                 <Text style={{ fontSize: 20, color: '#4f46e5' }}>-</Text>
               </TouchableOpacity>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', minWidth: 32, textAlign: 'center', color: '#fff' }}>{taskState.count || 0}</Text>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', minWidth: 32, textAlign: 'center', color: '#fff' }}>
+              {taskState.count || 0}
+            </Text>
               <TouchableOpacity
                 style={[styles.counterButton, { marginLeft: 8 }]} 
-                onPress={() => {
-                  console.log('Counter + pressed', period, currentTask.id);
-                  onCounter(period, currentTask.id, 1);
-                }}
+              onPress={() => onCounter(period, currentTask.id, 1)}
                 disabled={isTaskDone || isSessionSubmitted}
               >
                 <Text style={{ fontSize: 20, color: '#4f46e5' }}>+</Text>
               </TouchableOpacity>
             </View>
           )}
+        
           <View style={{ flexDirection: 'row', marginTop: 32, justifyContent: 'space-between' }}>
             <TouchableOpacity
-              style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginRight: 8 }}
-              onPress={handleSkip}
-              disabled={isTaskDone || isSessionSubmitted || isSaving}
+            style={{ 
+              backgroundColor: isTaskSkipped ? '#fbbf24' : '#fff', 
+              borderRadius: 18, 
+              paddingVertical: 10, 
+              paddingHorizontal: 28, 
+              marginRight: 8 
+            }}
+            onPress={handleNotDone}
+              disabled={isSessionSubmitted || isSaving}
             >
-              <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>{i18n.t('skip')}</Text>
+            <Text style={{ 
+              color: isTaskSkipped ? '#fff' : bg1, 
+              fontWeight: 'bold', 
+              fontSize: 16 
+            }}>
+              {isTaskSkipped ? 'Skip Again' : i18n.t('notdone')}
+            </Text>
             </TouchableOpacity>
+          
             <TouchableOpacity
-              style={{ backgroundColor: '#fff', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 28, marginLeft: 8 }}
+            style={{ 
+              backgroundColor: isTaskDone ? '#10b981' : '#fff', 
+              borderRadius: 18, 
+              paddingVertical: 10, 
+              paddingHorizontal: 28, 
+              marginLeft: 8 
+            }}
               onPress={handleDone}
-              disabled={isTaskDone || isSessionSubmitted || isSaving}
+              disabled={isSessionSubmitted || isSaving}
             >
-              <Text style={{ color: bg1, fontWeight: 'bold', fontSize: 16 }}>{i18n.t('done')}</Text>
+            <Text style={{ 
+              color: isTaskDone ? '#fff' : bg1, 
+              fontWeight: 'bold', 
+              fontSize: 16 
+            }}>
+              {isTaskDone ? 'Completed' : i18n.t('done')}
+            </Text>
             </TouchableOpacity>
           </View>
+        
           <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>{dots}</View>
           <Text style={{ color: '#fff', fontSize: 14, textAlign: 'center', marginTop: 8 }}>{progressLabel}</Text>
         </Animated.View>
@@ -645,20 +697,34 @@ const JourneyZigZagPathBar = forwardRef(function JourneyZigZagPathBar({
           resizeMode='contain'
         />
       </Animated.View>
+      
       {/* Render nodes and connectors */}
       {containerWidth > 0 && periods.map((period, idx) => {
         const tasks = quests[period];
         const state = questState[period] || {};
-        const completed = tasks.filter(
-          t =>
-            (t.isCounter && (state[t.id]?.count || 0) > 0) ||
-            (t.isInput && (state[t.id]?.value || '').trim() !== '') ||
-            state[t.id]?.checked ||
-            state[t.id]?.skipped
-        ).length;
+        
+        // Calculate completed, skipped, and total tasks
+        const completed = tasks.filter(t => {
+          const taskState = state[t.id];
+          if (!taskState) return false;
+          
+          if (taskState.checked) return true;
+          if (t.isCounter && (taskState.count || 0) > 0) return true;
+          if (t.isInput && (taskState.value || '').trim() !== '') return true;
+          
+          return false;
+        }).length;
+        
+        const skipped = tasks.filter(t => {
+          const taskState = state[t.id];
+          return taskState && taskState.skipped && !taskState.checked;
+        }).length;
+        
         const total = tasks.length;
         const isActive = period === activePeriod;
         const isDone = submittedSessions[period]?.submitted;
+        const hasSkipped = skipped > 0;
+        
         // Zig-zag: even index up, odd index down
         const verticalOffset = idx % 2 === 0 ? 0 : 24;
         const nodeLeft = idx * nodeSpacing;
@@ -680,11 +746,14 @@ const JourneyZigZagPathBar = forwardRef(function JourneyZigZagPathBar({
               }}
             >
               <View style={{
-                width: nodeWidth, height: nodeWidth, borderRadius: nodeWidth / 2,
+                width: nodeWidth, 
+                height: nodeWidth, 
+                borderRadius: nodeWidth / 2,
                 backgroundColor: isDone ? '#4f46e5' : isActive ? '#fbbf24' : '#e0e7ff',
                 borderWidth: isActive ? 3 : 2,
-                borderColor: isActive ? '#fbbf24' : isDone ? '#4f46e5' : '#e0e7ff',
-                alignItems: 'center', justifyContent: 'center',
+                borderColor: hasSkipped ? '#f97316' : (isActive ? '#fbbf24' : isDone ? '#4f46e5' : '#e0e7ff'),
+                alignItems: 'center', 
+                justifyContent: 'center',
                 shadowColor: isActive ? '#fbbf24' : undefined,
                 shadowOpacity: isActive ? 0.5 : 0,
                 shadowRadius: isActive ? 8 : 0,
@@ -693,27 +762,27 @@ const JourneyZigZagPathBar = forwardRef(function JourneyZigZagPathBar({
                 {isDone ? (
                   <Ionicons name="checkmark" size={22} color="#fff" />
                 ) : (
+                  <View style={{ alignItems: 'center' }}>
                   <Text style={{
-                    color: isActive
-                      ? '#4f46e5'
-                      : isDone
-                        ? '#10b981'
-                        : '#9ca3af',
+                      color: isActive ? '#4f46e5' : isDone ? '#10b981' : '#9ca3af',
                     fontWeight: 'bold',
-                    fontSize: 16,
+                      fontSize: 12,
                   }}>
                     {completed}/{total}
+                    </Text>
+                    {hasSkipped && (
+                      <Text style={{ color: '#f97316', fontSize: 8 }}>
+                        {skipped} skipped
                   </Text>
                 )}
               </View>
+                )}
+              </View>
+              
               <Text
                 style={{
                   fontSize: 13,
-                  color: isActive
-                    ? '#4f46e5'
-                    : isDone
-                      ? '#10b981'
-                      : '#9ca3af',
+                  color: isActive ? '#4f46e5' : isDone ? '#10b981' : '#9ca3af',
                   marginTop: 6,
                   fontWeight: isActive ? 'bold' : 'normal',
                   textAlign: 'center',
@@ -724,6 +793,7 @@ const JourneyZigZagPathBar = forwardRef(function JourneyZigZagPathBar({
                 {period}
               </Text>
             </TouchableOpacity>
+            
             {/* Diagonal connector */}
             {idx < periods.length - 1 && (
               <View style={{
@@ -1103,7 +1173,9 @@ export default function JourneyScreen() {
   }
 
   const handleToggle = async (period: QuestPeriod, taskId: string) => {
-    const newChecked = !questState[period]?.[taskId]?.checked;
+    const currentState = questState[period]?.[taskId];
+    const newChecked = !currentState?.checked;
+    
     // Optimistic update
     setQuestState(prev => {
       const updated = {
@@ -1112,10 +1184,27 @@ export default function JourneyScreen() {
           ...prev[period],
           [taskId]: {
             ...prev[period]?.[taskId],
-            checked: newChecked
+            checked: newChecked,
+            // Remove skipped flags when marking as done
+            skipped: newChecked ? false : prev[period]?.[taskId]?.skipped,
+            skippedTimestamp: newChecked ? undefined : prev[period]?.[taskId]?.skippedTimestamp,
+            // Add completion timestamp if marking as done
+            completedTimestamp: newChecked ? new Date().toISOString() : undefined
           }
         }
       };
+      
+      // Clean up undefined values
+      if (updated[period][taskId].skipped === false) {
+      delete updated[period][taskId].skipped;
+      }
+      if (updated[period][taskId].skippedTimestamp === undefined) {
+      delete updated[period][taskId].skippedTimestamp;
+      }
+      if (updated[period][taskId].completedTimestamp === undefined) {
+        delete updated[period][taskId].completedTimestamp;
+      }
+      
       // Auto-save after state update
       saveSession(period, {
         submitted: !!submittedSessions[period]?.submitted,
@@ -1123,10 +1212,12 @@ export default function JourneyScreen() {
         timestamp: new Date().toISOString(),
         questState: updated[period]
       });
+      
       // Trigger mascot spin animation
       if (progressBarRef.current && progressBarRef.current.spin) {
         progressBarRef.current.spin();
       }
+      
       return updated;
     });
   };
@@ -1199,11 +1290,20 @@ export default function JourneyScreen() {
           ...prev[period],
           [taskId]: {
             ...prev[period]?.[taskId],
+            checked: false,
             skipped: true,
-            skippedTimestamp: new Date().toISOString()
+            skippedTimestamp: new Date().toISOString(),
+            // Remove completion timestamp if it exists
+            completedTimestamp: undefined
           }
         }
       };
+      
+      // Clean up undefined values
+      if (updated[period][taskId].completedTimestamp === undefined) {
+        delete updated[period][taskId].completedTimestamp;
+      }
+      
       // Auto-save after state update
       saveSession(period, {
         submitted: !!submittedSessions[period]?.submitted,
@@ -1211,6 +1311,7 @@ export default function JourneyScreen() {
         timestamp: new Date().toISOString(),
         questState: updated[period]
       });
+      
       return updated;
     });
   };
@@ -1218,6 +1319,8 @@ export default function JourneyScreen() {
   // Helper to find the first incomplete (not checked/skipped) task index for a period
   const getFirstIncompleteTaskIndex = (period: QuestPeriod, tasks: Task[], state: QuestState) => {
     const periodState = state[period] || {};
+    
+    // First, look for tasks that are neither checked nor skipped
     for (let i = 0; i < tasks.length; i++) {
       const t = tasks[i];
       const s = periodState[t.id];
@@ -1225,7 +1328,9 @@ export default function JourneyScreen() {
         return i;
       }
     }
-    return tasks.length - 1; // fallback to last
+    
+    // If all tasks are either done or skipped, return the last task
+    return tasks.length - 1;
   };
 
   // On mount or when questState changes, update currentTaskIndices to resume progress
@@ -1259,19 +1364,30 @@ export default function JourneyScreen() {
     periods.forEach(period => {
       const periodTasks = quests[period];
       const periodState = questState[period] || {};
-      const allDone = periodTasks.every(task => {
+      
+      // Check if all tasks are either completed or skipped
+      const allProcessed = periodTasks.every(task => {
         const state = periodState[task.id];
         if (!state) return false;
+        
+        // Task is processed if it's checked OR skipped
+        if (state.checked || state.skipped) return true;
+        
+        // For counter tasks, check if count > 0
         if (task.isCounter) return (state.count || 0) > 0;
+        
+        // For input tasks, check if value is not empty
         if (task.isInput) {
           if (task.id === "5" && period === "workout") {
             return state.value !== "" && Number(state.value) > 0;
           }
           return (state.value || "").trim() !== "";
         }
-        return state.checked || state.skipped;
+        
+        return false;
       });
-      if (allDone && !submittedSessions[period]?.submitted) {
+      
+      if (allProcessed && !submittedSessions[period]?.submitted) {
         handleSessionSubmit(period);
       }
     });
@@ -1282,8 +1398,68 @@ export default function JourneyScreen() {
   const firstIncompletePeriod = periods.find(period => {
     const periodTasks = quests[period];
     const periodState = questState[period] || {};
-    return periodTasks.some(task => !periodState[task.id]?.checked && !periodState[task.id]?.skipped);
+    return periodTasks.some(task => {
+      const state = periodState[task.id];
+      if (!state) return true; // Task not started
+      
+      // Task is incomplete if it's not checked and not skipped
+      return !state.checked && !state.skipped;
+    });
   });
+
+  // function to allow users to return to skipped tasks later:
+  const handleNodePress = (period: QuestPeriod) => {
+    // If period is already submitted, don't allow changes
+    if (submittedSessions[period]?.submitted) {
+      return;
+    }
+    
+    // Find the first incomplete (not done, not skipped) task
+    const periodTasks = quests[period];
+    const periodState = questState[period] || {};
+    
+    let targetIndex = 0;
+    
+    // First, try to find an incomplete task
+    for (let i = 0; i < periodTasks.length; i++) {
+      const task = periodTasks[i];
+      const state = periodState[task.id];
+      
+      if (!state || (!state.checked && !state.skipped)) {
+        targetIndex = i;
+        break;
+      }
+    }
+    
+    // If all tasks are done/skipped, prioritize skipped INPUT tasks that can be completed
+    if (targetIndex === 0) {
+      const firstSkippedInputIndex = periodTasks.findIndex(task => {
+        const state = periodState[task.id];
+        return state && state.skipped && !state.checked && (task.isInput || task.isCounter);
+  });
+      
+      if (firstSkippedInputIndex !== -1) {
+        targetIndex = firstSkippedInputIndex;
+      } else {
+        // If no skipped input tasks, find any skipped task
+        const firstSkippedIndex = periodTasks.findIndex(task => {
+          const state = periodState[task.id];
+          return state && state.skipped && !state.checked;
+        });
+        
+        if (firstSkippedIndex !== -1) {
+          targetIndex = firstSkippedIndex;
+        }
+      }
+    }
+    
+    setCurrentTaskIndices(prev => ({
+      ...prev,
+      [period]: targetIndex
+    }));
+    
+    setSelectedPeriod(period);
+  };
   const activePeriod = firstIncompletePeriod || periods[0];
 
   const [showAllDoneModal, setShowAllDoneModal] = useState(false);
@@ -1307,6 +1483,26 @@ export default function JourneyScreen() {
       return () => clearTimeout(timer);
     }
   }, [lastCompletedPeriod]);
+
+  const [pendingTaskChange, setPendingTaskChange] = useState<null | { period: QuestPeriod, taskId: string, action: 'done' | 'skipped' }>(null);
+
+  const handleTaskStatusChange = (period: QuestPeriod, taskId: string, action: 'done' | 'skipped') => {
+    // Do NOT close the modal here!
+    Alert.alert(
+      'Are you sure?',
+      `Do you want to mark this task as ${action === 'done' ? 'Done' : 'Skipped'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes',
+          onPress: () => {
+            if (action === 'done') handleToggle(period, taskId);
+            else handleSkipTask(period, taskId);
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <ImageBackground
@@ -1485,8 +1681,9 @@ export default function JourneyScreen() {
               <FlatList
                 data={selectedPeriod ? quests[selectedPeriod] : []}
                 keyExtractor={item => item.id}
-                renderItem={({ item }) => {
-                  const state = selectedPeriod ? questState[selectedPeriod]?.[item.id] : undefined;
+                renderItem={({ item }: { item: Task }) => {
+                  if (!selectedPeriod) return null;
+                  const state = questState[selectedPeriod]?.[item.id];
                   let status = '';
                   if (item.isCounter) {
                     status = (state?.count || 0) > 0 ? `Count: ${state?.count}` : 'Not done';
@@ -1499,8 +1696,22 @@ export default function JourneyScreen() {
                   } else {
                     status = 'Not done';
                   }
+                  // Allow navigation to skipped input/counter tasks
+                  const isNavigable = (item.isInput || item.isCounter) && state?.skipped && !state?.checked;
                   return (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                    <TouchableOpacity
+                      disabled={!isNavigable}
+                      onPress={() => {
+                        if (isNavigable) {
+                        setSelectedPeriod(null);
+                        setTimeout(() => {
+                          setCurrentTaskIndices(prev => ({ ...prev, [selectedPeriod]: quests[selectedPeriod].findIndex((t: Task) => t.id === item.id) }));
+                        }, 300);
+                        }
+                      }}
+                      style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, opacity: isNavigable ? 1 : 0.6 }}
+                      activeOpacity={isNavigable ? 0.7 : 1}
+                    >
                       <Ionicons
                         name={status === 'Done' ? 'checkmark-circle' : status === 'Skipped' ? 'close-circle' : 'ellipse-outline'}
                         size={20}
@@ -1511,7 +1722,23 @@ export default function JourneyScreen() {
                         <Text style={{ fontSize: 15, color: '#22223b' }}>{i18n.t(item.id)}</Text>
                         <Text style={{ fontSize: 12, color: '#6b7280' }}>{status}</Text>
                       </View>
-                    </View>
+                      {(state?.checked || state?.skipped) && (
+                        <TouchableOpacity
+                          style={{ marginLeft: 10, padding: 4, backgroundColor: '#eee', borderRadius: 6 }}
+                          onPress={() => handleTaskStatusChange(selectedPeriod, item.id, state?.checked ? 'skipped' : 'done')}
+                        >
+                          <Text style={{ color: '#4f46e5', fontWeight: 'bold' }}>{state?.checked ? 'Skip' : 'Done'}</Text>
+                        </TouchableOpacity>
+                      )}
+                      {state?.skipped && !state?.checked && (
+                        <TouchableOpacity
+                          style={{ marginLeft: 10, padding: 4, backgroundColor: '#d1fae5', borderRadius: 6 }}
+                          onPress={() => handleTaskStatusChange(selectedPeriod, item.id, 'done')}
+                        >
+                          <Text style={{ color: '#10b981', fontWeight: 'bold' }}>Mark as Done</Text>
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
                   );
                 }}
                 ListEmptyComponent={<Text style={{ color: '#9ca3af', textAlign: 'center' }}>No tasks found.</Text>}
