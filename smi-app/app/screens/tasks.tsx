@@ -221,6 +221,7 @@ export default function TasksScreen() {
             >
               <Picker.Item label="English" value="en" />
               <Picker.Item label="मराठी" value="mr" />
+              <Picker.Item label="हिन्दी" value="hi" />
             </Picker>
           </View>
           <View style={styles.headerPoints}>

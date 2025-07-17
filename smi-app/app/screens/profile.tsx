@@ -20,6 +20,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { ActivityIndicator } from 'react-native';
+import i18n from '../../i18n';
 
 export default function StudentProfileScreen() {
   const { user } = useAuth();
@@ -199,11 +200,11 @@ export default function StudentProfileScreen() {
           </TouchableOpacity>
         </View>
         <Text style={styles.name}>{profile.name}</Text>
-        <Text style={styles.studentId}>School: {profile.schoolName}</Text>
+        <Text style={styles.studentId}>{i18n.t('school')}: {profile.schoolName}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
             <Ionicons name="pencil" size={16} color="#3b82f6" />
-            <Text style={styles.editButtonText}>Edit Profile</Text>
+            <Text style={styles.editButtonText}>{i18n.t('edit_profile')}</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.logoutButton} 
@@ -214,27 +215,27 @@ export default function StudentProfileScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="log-out-outline" size={16} color="#ef4444" />
-            <Text style={styles.logoutButtonText}>Logout</Text>
+            <Text style={styles.logoutButtonText}>{i18n.t('logout')}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Academic Info */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Personal Information</Text>
+        <Text style={styles.sectionTitle}>{i18n.t('personal_information')}</Text>
         <View style={styles.infoRowCard}>
           <View style={styles.infoRowCol}>
-            <Text style={styles.infoLabel}>Gender</Text>
-            <Text style={styles.infoValue}>{profile.gender}</Text>
-            <Text style={styles.infoLabel}>Date of Birth</Text>
+            <Text style={styles.infoLabel}>{i18n.t('gender')}</Text>
+            <Text style={styles.infoValue}>{profile.gender ? i18n.t(profile.gender.toLowerCase()) : ''}</Text>
+            <Text style={styles.infoLabel}>{i18n.t('date_of_birth')}</Text>
             <Text style={styles.infoValue}>
               {show(formatDate(profile.dateOfBirth))}
             </Text>
           </View>
           <View style={styles.infoRowCol}>
-            <Text style={styles.infoLabel}>Height</Text>
+            <Text style={styles.infoLabel}>{i18n.t('height')}</Text>
             <Text style={styles.infoValue}>{show(profile.height || '')}</Text>
-            <Text style={styles.infoLabel}>Weight</Text>
+            <Text style={styles.infoLabel}>{i18n.t('weight')}</Text>
             <Text style={styles.infoValue}>{show(profile.weight || '')}</Text>
           </View>
         </View>
@@ -242,33 +243,33 @@ export default function StudentProfileScreen() {
 
       {/* Contact Info */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Contact Information</Text>
+        <Text style={styles.sectionTitle}>{i18n.t('contact_information')}</Text>
         <View style={styles.infoRowCard}>
           <TouchableOpacity style={styles.infoRow} onPress={openPhone}>
             <Ionicons name="call-outline" size={18} color="#64748b" style={styles.infoIcon} />
-            <Text style={styles.infoLabel}>Phone</Text>
+            <Text style={styles.infoLabel}>{i18n.t('phone')}</Text>
             <Text style={[styles.infoValueRight, !profile.phoneNumber && styles.placeholderText]}>{show(profile.phoneNumber)}</Text>
           </TouchableOpacity>
           <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={18} color="#64748b" style={styles.infoIcon} />
-            <Text style={styles.infoLabel}>City</Text>
+            <Text style={styles.infoLabel}>{i18n.t('city')}</Text>
             <Text style={[styles.infoValueRight, !profile.city && styles.placeholderText]}>{show(profile.city)}</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>School Information</Text>
+        <Text style={styles.sectionTitle}>{i18n.t('school_information')}</Text>
         <View style={styles.infoRowCard}>
-          <Text style={styles.infoLabel}>School Name</Text>
+          <Text style={styles.infoLabel}>{i18n.t('school_name')}</Text>
           <Text style={styles.infoValue}>{profile.schoolName}</Text>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account Information</Text>
+        <Text style={styles.sectionTitle}>{i18n.t('account_information')}</Text>
         <View style={styles.infoRowCard}>
-          <Text style={styles.infoLabel}>Email</Text>
+          <Text style={styles.infoLabel}>{i18n.t('email')}</Text>
           <Text style={styles.infoValue}>{user?.email || 'Not available'}</Text>
         </View>
       </View>
@@ -282,28 +283,28 @@ export default function StudentProfileScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <Text style={styles.modalTitle}>{i18n.t('edit_profile')}</Text>
             <ScrollView style={styles.modalScrollView}>
-              <Text style={styles.inputLabel}>Name *</Text>
+              <Text style={styles.inputLabel}>{i18n.t('name')} *</Text>
               <TextInput
                 style={styles.input}
                 value={editProfile.name}
                 onChangeText={text => setEditProfile({ ...editProfile, name: text })}
-                placeholder="Enter your full name"
+                placeholder={i18n.t('enter_full_name')}
               />
 
-              <Text style={styles.inputLabel}>Date of Birth (DD/MM/YYYY) *</Text>
+              <Text style={styles.inputLabel}>{i18n.t('date_of_birth')} (DD/MM/YYYY) *</Text>
               <TextInput
                 style={styles.input}
                 value={typeof editProfile.dateOfBirth === 'string' 
                   ? editProfile.dateOfBirth 
                   : formatDate(editProfile.dateOfBirth)}
                 onChangeText={text => setEditProfile({ ...editProfile, dateOfBirth: text })}
-                placeholder="DD/MM/YYYY"
+                placeholder={i18n.t('dob_placeholder')}
                 keyboardType="numbers-and-punctuation"
               />
 
-              <Text style={styles.inputLabel}>Gender *</Text>
+              <Text style={styles.inputLabel}>{i18n.t('gender')} *</Text>
               <View style={styles.genderContainer}>
                 {['Male', 'Female'].map((gender) => (
                   <TouchableOpacity
@@ -328,58 +329,58 @@ export default function StudentProfileScreen() {
 
               <View style={styles.row}>
                 <View style={styles.column}>
-                  <Text style={styles.inputLabel}>Height (cm)</Text>
+                  <Text style={styles.inputLabel}>{i18n.t('height')} (cm)</Text>
                   <TextInput
                     style={styles.input}
                     value={editProfile.height}
                     onChangeText={text => setEditProfile({ ...editProfile, height: text })}
                     keyboardType="numeric"
-                    placeholder="e.g., 165"
+                    placeholder={i18n.t('height_placeholder')}
                   />
                 </View>
                 <View style={styles.column}>
-                  <Text style={styles.inputLabel}>Weight (kg)</Text>
+                  <Text style={styles.inputLabel}>{i18n.t('weight')} (kg)</Text>
                   <TextInput
                     style={styles.input}
                     value={editProfile.weight}
                     onChangeText={text => setEditProfile({ ...editProfile, weight: text })}
                     keyboardType="numeric"
-                    placeholder="e.g., 60"
+                    placeholder={i18n.t('weight_placeholder')}
                   />
                 </View>
               </View>
 
-              <Text style={styles.inputLabel}>School Name *</Text>
+              <Text style={styles.inputLabel}>{i18n.t('school_name')} *</Text>
               <TextInput
                 style={styles.input}
                 value={editProfile.schoolName}
                 onChangeText={text => setEditProfile({ ...editProfile, schoolName: text })}
-                placeholder="Enter your school name"
+                placeholder={i18n.t('enter_school_name')}
               />
 
-              <Text style={styles.inputLabel}>City *</Text>
+              <Text style={styles.inputLabel}>{i18n.t('city')} *</Text>
               <TextInput
                 style={styles.input}
                 value={editProfile.city}
                 onChangeText={text => setEditProfile({ ...editProfile, city: text })}
-                placeholder="Enter your city"
+                placeholder={i18n.t('enter_city')}
               />
 
-              <Text style={styles.inputLabel}>Phone Number *</Text>
+              <Text style={styles.inputLabel}>{i18n.t('phone_number')} *</Text>
               <TextInput
                 style={styles.input}
                 value={editProfile.phoneNumber}
                 onChangeText={text => setEditProfile({ ...editProfile, phoneNumber: text })}
                 keyboardType="phone-pad"
-                placeholder="Enter your phone number"
+                placeholder={i18n.t('enter_phone_number')}
               />
             </ScrollView>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Save</Text>
+                <Text style={styles.saveButtonText}>{i18n.t('save')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelButton} onPress={() => setEditModalVisible(false)}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{i18n.t('cancel')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -395,20 +396,20 @@ export default function StudentProfileScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Logout</Text>
-            <Text style={styles.modalText}>Are you sure you want to logout?</Text>
+            <Text style={styles.modalTitle}>{i18n.t('logout')}</Text>
+            <Text style={styles.modalText}>{i18n.t('logout_confirm')}</Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity 
                 style={[styles.modalButton, styles.cancelButton]} 
                 onPress={cancelLogout}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{i18n.t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.modalButton, styles.logoutConfirmButton]} 
                 onPress={confirmLogout}
               >
-                <Text style={styles.logoutButtonText}>Logout</Text>
+                <Text style={styles.logoutButtonText}>{i18n.t('logout')}</Text>
               </TouchableOpacity>
             </View>
           </View>

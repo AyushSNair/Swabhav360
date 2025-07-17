@@ -9,6 +9,7 @@ import { useQuest, type QuestPeriod } from "../QuestContext"
 import { getAuth, type User } from "firebase/auth"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Ionicons } from "@expo/vector-icons"
+import i18n from '../../i18n';
 
 // Type definitions
 interface TaskState {
@@ -714,14 +715,14 @@ const BadgesTab: React.FC = () => {
   const BadgeCard = ({ badge }: { badge: BadgeType }) => (
     <View style={[styles.badgeCard, badge.earned ? styles.earnedBadge : styles.unearnedBadge]}>
       <Text style={styles.badgeIcon}>{badge.icon}</Text>
-      <Text style={[styles.badgeName, badge.earned ? styles.earnedText : styles.unearnedText]}>{badge.name}</Text>
-      <Text style={styles.badgeDescription}>{badge.description}</Text>
+      <Text style={[styles.badgeName, badge.earned ? styles.earnedText : styles.unearnedText]}>{i18n.t(`badge_${badge.id}_name`)}</Text>
+      <Text style={styles.badgeDescription}>{i18n.t(`badge_${badge.id}_desc`)}</Text>
       <Text style={[styles.progressText, badge.earned ? styles.earnedText : styles.unearnedText]}>
         {`${badge.progress.current}/${badge.progress.target}`}
       </Text>
       {badge.earned && (
         <View style={styles.earnedLabel}>
-          <Text style={styles.earnedLabelText}>Earned!</Text>
+          <Text style={styles.earnedLabelText}>{i18n.t('badge_earned')}</Text>
         </View>
       )}
     </View>
@@ -757,7 +758,7 @@ const BadgesTab: React.FC = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Badges</Text>
+        <Text style={styles.headerTitle}>{i18n.t('my_badges')}</Text>
         <View style={styles.headerPoints}>
           <Ionicons name="trophy" size={16} color="#f59e0b" />
           <Text style={styles.headerPointsText}>{`${earnedBadgesCount}/${totalBadges}`}</Text>

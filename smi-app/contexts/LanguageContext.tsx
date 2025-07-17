@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import i18n, { setLanguage as setI18nLanguage } from '../i18n';
 
-export type Language = 'en' | 'mr';
+export type Language = 'en' | 'mr' | 'hi';
 
 interface LanguageContextProps {
   language: Language;

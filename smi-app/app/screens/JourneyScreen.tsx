@@ -71,50 +71,50 @@ type QuestState = {
 
 const initialQuests: Quests = {
   morning: [
-    { id: "mng_1", text: "Slept 8 hours(slept before 9:30pm last night?)", points: 3 },
-    { id: "mng_2", text: "Brushed your teeth?", points: 3 },
-    { id: "mng_3", text: "Went to poop?", points: 3 },
-    { id: "mng_4", text: "Boiled water and drank?", points: 3 },
+    { id: "mng_1", text: "mng_1", points: 3 },
+    { id: "mng_2", text: "mng_2", points: 3 },
+    { id: "mng_3", text: "mng_3", points: 3 },
+    { id: "mng_4", text: "mng_4", points: 3 },
     {
       id: "mng_5",
-      text: "Packed session items in advance?",
+      text: "mng_5",
       points: 3,
       items: ["Shoes", "Socks", "Shinpad", "Bag", "Bottles", "Notebook"],
       isChecklistCount: true,
     },
-    { id: "mng_6", text: "Thanked God your creator?", points: 3 },
+    { id: "mng_6", text: "mng_6", points: 3 },
   ],
   workout: [
-    { id: "wrk_1", text: "25 Pushups", points: 3, isCounter: false, isInput: true, max: 999 },
-    { id: "wrk_2", text: "25 Pullups", points: 3, isCounter: false, isInput: true, max: 999 },
-    { id: "wrk_3", text: "25 Glute Bridges", points: 3, isCounter: false, isInput: true, max: 999 },
-    { id: "wrk_4", text: "25 Squats", points: 3, isCounter: false, isInput: true, max: 999 },
-    { id: "wrk_5", text: "Juggling", points: 5, isInput: true, max: 999 },
-    { id: "wrk_6", text: "Practiced only with team members", points: 3 },
+    { id: "wrk_1", text: "wrk_1", points: 3, isCounter: false, isInput: true, max: 999 },
+    { id: "wrk_2", text: "wrk_2", points: 3, isCounter: false, isInput: true, max: 999 },
+    { id: "wrk_3", text: "wrk_3", points: 3, isCounter: false, isInput: true, max: 999 },
+    { id: "wrk_4", text: "wrk_4", points: 3, isCounter: false, isInput: true, max: 999 },
+    { id: "wrk_5", text: "wrk_5", points: 5, isInput: true, max: 999 },
+    { id: "wrk_6", text: "wrk_6", points: 3 },
   ],
   afternoon: [
-    { id: "aft_1", text: "Helped someone?", points: 5, isInput: true, max: 200 },
-    { id: "aft_2", text: "Forgave someone?", points: 5, isInput: true, max: 200 },
-    { id: "aft_3", text: "Went to school today?", points: 3 },
+    { id: "aft_1", text: "aft_1", points: 5, isInput: true, max: 200 },
+    { id: "aft_2", text: "aft_2", points: 5, isInput: true, max: 200 },
+    { id: "aft_3", text: "aft_3", points: 3 },
   ],
   evening: [
-    { id: "evn_1", text: "Washed jersey kit after the game?", points: 3 },
-    { id: "evn_2", text: "Daily update (before 9 PM)", points: 5, isInput: true, max: 500 },
-    { id: "evn_3", text: "What good happened today?", points: 3, isInput: true, max: 500 },
-    { id: "evn_4a", text: "What bad happened today?", points: 3, isInput: true, max: 500 },
-    { id: "evn_4b", text: "Highest moment of the day?", points: 3, isInput: true, max: 500 },
-    { id: "evn_4c", text: "Lowest moment of the day?", points: 3, isInput: true, max: 500 },
-    { id: "evn_4d", text: "Dinner before 8 PM?", points: 3 },
+    { id: "evn_1", text: "evn_1", points: 3 },
+    { id: "evn_2", text: "evn_2", points: 5, isInput: true, max: 500 },
+    { id: "evn_3", text: "evn_3", points: 3, isInput: true, max: 500 },
+    { id: "evn_4a", text: "evn_4a", points: 3, isInput: true, max: 500 },
+    { id: "evn_4b", text: "evn_4b", points: 3, isInput: true, max: 500 },
+    { id: "evn_4c", text: "evn_4c", points: 3, isInput: true, max: 500 },
+    { id: "evn_4d", text: "evn_4d", points: 3 },
   ],
   daily: [
-    { id: "dly_1", text: "Drank minimum 2 litres of water?", points: 3 },
-    { id: "dly_2", text: "Went to turf today?", points: 3 },
-    { id: "dly_3", text: "Listened to parents and helped them?", points: 3 },
-    { id: "dly_4", text: "Respect and value girls? in neighbourhood, school, and public?", points: 3 },
-    { id: "dly_5", text: "No outside food?", points: 5 },
-    { id: "dly_6", text: 'No bf/gf? say "My focus is career now, so I will not talk"', points: 3 },
-    { id: "dly_7", text: "No addictions? – porn, cigarette, tobacco, etc.", points: 3 },
-    { id: "dly_8", text: 'No talking to area friends? say "My focus is career now, so I will not talk"', points: 3 },
+    { id: "dly_1", text: "dly_1", points: 3 },
+    { id: "dly_2", text: "dly_2", points: 3 },
+    { id: "dly_3", text: "dly_3", points: 3 },
+    { id: "dly_4", text: "dly_4", points: 3 },
+    { id: "dly_5", text: "dly_5", points: 5 },
+    { id: "dly_6", text: "dly_6", points: 3 },
+    { id: "dly_7", text: "dly_7", points: 3 },
+    { id: "dly_8", text: "dly_8", points: 3 },
   ],
 }
 
@@ -1558,6 +1558,7 @@ export default function JourneyScreen() {
               >
                 <Picker.Item label="English" value="en" />
                 <Picker.Item label="मराठी" value="mr" />
+                <Picker.Item label="हिन्दी" value="hi" />
               </Picker>
             </View>
             <View style={styles.headerPoints}>
@@ -1569,15 +1570,15 @@ export default function JourneyScreen() {
           {/* Journey Card */}
           <MagicalCard>
             <View style={styles.journeyHeader}>
-              <Text style={styles.journeyTitle}>My Journey Today</Text>
+              <Text style={styles.journeyTitle}>{i18n.t('my_journey_today')}</Text>
               <View>
                 <Text style={styles.journeyPoints}>{totalPoints}</Text>
-                <Text style={styles.journeyPointsLabel}>Total Points</Text>
+                <Text style={styles.journeyPointsLabel}>{i18n.t('total_points')}</Text>
               </View>
             </View>
-            <Text style={styles.journeySubtitle}>Ready to become your best self?</Text>
+            <Text style={styles.journeySubtitle}>{i18n.t('ready_to_become')}</Text>
             <View style={styles.progressContainer}>
-              <Text style={styles.progressLabel}>Daily Progress</Text>
+              <Text style={styles.progressLabel}>{i18n.t('daily_progress')}</Text>
             </View>
             <JourneyZigZagPathBar
               ref={progressBarRef}
