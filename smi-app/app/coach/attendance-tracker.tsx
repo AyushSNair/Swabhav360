@@ -23,7 +23,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { FIRESTORE_DB } from "@/config/FirebaseConfig";
+import { FIRESTORE_DB } from "../../FirebaseConfig";
 import { getAuth } from "firebase/auth";
 // Define types locally since we're having issues with the types module
 interface Student {

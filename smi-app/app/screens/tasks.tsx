@@ -17,6 +17,9 @@ import { useQuest, QuestPeriod, QuestState } from "../QuestContext"
 import { useLanguage } from '../../contexts/LanguageContext'
 import i18n from '../../i18n'
 import { Picker } from '@react-native-picker/picker'
+import { getAuth } from 'firebase/auth';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { FIRESTORE_DB } from '../../FirebaseConfig';
 
 type Task = {
   id: string
@@ -28,61 +31,62 @@ type Task = {
   hasMedia?: boolean
   max?: number
   isChecklistCount?: boolean
+  title?: string; // Added for clarity in rendering
+  completedStudents?: string[]; // Added for completed status
 }
 
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    text: "task_coach_1",
-    points: 10,
-  },
-  {
-    id: "2",
-    text: "task_coach_2",
-    points: 15,
-  },
-  {
-    id: "3",
-    text: "task_coach_3",
-    points: 20,
-    isCounter: true,
-  },
-  {
-    id: "4",
-    text: "task_coach_4",
-    points: 10,
-    isInput: true,
-  },
-]
-
-// Required keys for i18n.ts:
-// task_coach_1: "Complete dribbling drills (30 mins)",
-// task_coach_2: "Watch match analysis and take notes",
-// task_coach_3: "Practice free kicks (20 attempts)",
-// task_coach_4: "Reflection on today's training session",
-// Marathi:
-// task_coach_1: "ड्रिब्लिंग सराव पूर्ण करा (३० मिनिटे)",
-// task_coach_2: "सामना विश्लेषण पहा आणि नोंदी घ्या",
-// task_coach_3: "फ्री किक्सचा सराव करा (२० प्रयत्न)",
-// task_coach_4: "आजच्या प्रशिक्षण सत्रावर विचार करा",
-
 export default function TasksScreen() {
+  const [assignedTasks, setAssignedTasks] = useState<Task[]>([]);
   const [questState, setQuestState] = useState<QuestState>({ coach: {} })
   const [isDayComplete, setIsDayComplete] = useState(false)
   const { setQuestState: setCtxQuestState } = useQuest()
   const { language, setLanguage } = useLanguage()
 
-  // Initialize quest state
-  useEffect(() => {
-    const initialState: QuestState = { coach: {} };
-    initialState.coach = {}; // Ensure it's defined
-    initialTasks.forEach((task) => {
-      initialState.coach![task.id] = task.isCounter ? { count: 0 } : task.isInput ? { value: "" } : { checked: false };
+  // Fetch tasks assigned to the current student
+  const fetchAssignedTasks = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return [];
+    const q = query(
+      collection(FIRESTORE_DB, 'tasks'),
+      where('assignedStudents', 'array-contains', user.uid)
+    );
+    const querySnapshot = await getDocs(q);
+    const tasks: Task[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      // Ensure required fields exist, fallback if missing
+      tasks.push({
+        id: doc.id,
+        text: data.text || data.title || 'Untitled Task',
+        points: typeof data.points === 'number' ? data.points : 0,
+        isCounter: data.isCounter,
+        isInput: data.isInput,
+        hasAdd: data.hasAdd,
+        hasMedia: data.hasMedia,
+        max: data.max,
+        isChecklistCount: data.isChecklistCount,
+        title: data.title,
+        completedStudents: data.completedStudents || [],
+      });
     });
-    setQuestState(initialState);
-  }, [])
+    return tasks;
+  };
 
-  // Sync with context
+  useEffect(() => {
+    const loadTasks = async () => {
+      const tasks = await fetchAssignedTasks();
+      setAssignedTasks(tasks);
+      // Initialize quest state for fetched tasks
+      const initialState: QuestState = { coach: {} };
+      tasks.forEach((task) => {
+        initialState.coach![task.id] = task.isCounter ? { count: 0 } : task.isInput ? { value: "" } : { checked: false };
+      });
+      setQuestState(initialState);
+    };
+    loadTasks();
+  }, []);
+
   useEffect(() => {
     setCtxQuestState(questState)
   }, [questState, setCtxQuestState])
@@ -90,23 +94,24 @@ export default function TasksScreen() {
   // Calculate stats
   let totalPoints = 0
   let completedTasks = 0
-  const totalTasks = initialTasks.length
+  const totalTasks = assignedTasks.length
 
-  initialTasks.forEach((task) => {
+  assignedTasks.forEach((task) => {
     const state = questState.coach?.[task.id] || {}
-    if (task.isCounter) {
-      if ((state?.count || 0) > 0) {
-        completedTasks++
-        totalPoints += task.points
-      }
+    const user = getAuth().currentUser;
+    let isComplete = false;
+    if (Array.isArray(task.completedStudents) && user && task.completedStudents.includes(user.uid)) {
+      isComplete = true;
+    } else if (task.isCounter) {
+      isComplete = (state.count || 0) > 0;
     } else if (task.isInput) {
-      if (state?.value?.trim() !== "") {
-        completedTasks++
-        totalPoints += task.points
-      }
-    } else if (state?.checked) {
-      completedTasks++
-      totalPoints += task.points
+      isComplete = (state.value || '').trim() !== '';
+    } else {
+      isComplete = !!state.checked;
+    }
+    if (isComplete) {
+      completedTasks++;
+      totalPoints += task.points;
     }
   })
 
@@ -140,7 +145,7 @@ export default function TasksScreen() {
   const handleClear = (period: QuestPeriod) => {
     setQuestState((prev) => {
       const newPeriodState = { ...prev[period] }
-      initialTasks.forEach((task) => {
+      assignedTasks.forEach((task) => {
         if (task.isCounter) {
           newPeriodState[task.id] = { count: 0 }
         } else if (task.isInput) {
@@ -152,6 +157,46 @@ export default function TasksScreen() {
       return { ...prev, [period]: newPeriodState }
     })
   }
+
+  // Helper to check if all tasks are complete
+  const allTasksComplete = assignedTasks.length > 0 && assignedTasks.every((task) => {
+    const state = questState.coach?.[task.id] || {};
+    const user = getAuth().currentUser;
+    // If completedStudents exists and includes the user, consider it complete
+    if (Array.isArray(task.completedStudents) && user && task.completedStudents.includes(user.uid)) {
+      return true;
+    }
+    if (task.isCounter) {
+      return (state.count || 0) > 0;
+    } else if (task.isInput) {
+      return (state.value || '').trim() !== '';
+    } else {
+      return !!state.checked;
+    }
+  });
+
+  const handleSubmit = async () => {
+    // Mark all tasks as completed in Firestore for this student
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+    for (const task of assignedTasks) {
+      const docRef = doc(FIRESTORE_DB, 'tasks', task.id);
+      // Fetch current completedStudents array
+      const docSnap = await getDoc(docRef);
+      let completedStudents = [];
+      if (docSnap.exists()) {
+        completedStudents = docSnap.data().completedStudents || [];
+      }
+      if (!completedStudents.includes(user.uid)) {
+        await updateDoc(docRef, {
+          completedStudents: [...completedStudents, user.uid],
+        });
+      }
+    }
+    setIsDayComplete(true);
+    alert(i18n.t('tasks_submitted'));
+  };
 
   return (
     <KeyboardAvoidingView
@@ -176,6 +221,7 @@ export default function TasksScreen() {
             >
               <Picker.Item label="English" value="en" />
               <Picker.Item label="मराठी" value="mr" />
+              <Picker.Item label="हिन्दी" value="hi" />
             </Picker>
           </View>
           <View style={styles.headerPoints}>
@@ -211,114 +257,119 @@ export default function TasksScreen() {
           </View>
         </LinearGradient>
 
-
         {/* Tasks List */}
         <View style={styles.questsContainer}>
           <View style={styles.questCard}>
-            <View style={[styles.questCardContent, isDayComplete && { opacity: 0.6 }, { borderLeftWidth: 4, borderLeftColor: "#8b5cf6" }]}>
+            <View style={[styles.questCardContent, isDayComplete && { opacity: 0.6 }, { borderLeftWidth: 4, borderLeftColor: "#8b5cf6" }]}> 
               <View style={styles.questHeader}>
-                <View style={[styles.questIconContainer, { backgroundColor: "#f5f3ff" }]}>
+                <View style={[styles.questIconContainer, { backgroundColor: "#f5f3ff" }]}> 
                   <Ionicons name="clipboard-outline" size={20} color="#7c3aed" />
                 </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.questTitle}>{i18n.t('coach_assignments')}</Text>
-                <Text style={styles.questPhrase}>"{i18n.t('complete_these_tasks_assigned_by_your_coach')}"</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.questTitle}>{i18n.t('coach_assignments')}</Text>
+                  <Text style={styles.questPhrase}>"{i18n.t('complete_these_tasks_assigned_by_your_coach')}"</Text>
+                </View>
+                <Text style={styles.questProgressText}>
+                  {completedTasks}/{assignedTasks.length}
+                </Text>
               </View>
-              <Text style={styles.questProgressText}>
-                {completedTasks}/{initialTasks.length}
-              </Text>
-            </View>
 
-            <View style={styles.questTasks}>
-              {initialTasks.map((task) => {
-                const state = questState.coach?.[task.id] || {}
-                const isComplete = task.isCounter
-                  ? (state.count || 0) > 0
-                  : task.isInput
-                    ? (state.value || "").trim() !== ""
-                    : state.checked
+              <View style={styles.questTasks}>
+                {assignedTasks.map((task) => {
+                  const state = questState.coach?.[task.id] || {}
+                  const user = getAuth().currentUser;
+                  let isComplete = false;
+                  if (Array.isArray(task.completedStudents) && user && task.completedStudents.includes(user.uid)) {
+                    isComplete = true;
+                  } else if (task.isCounter) {
+                    isComplete = (state.count || 0) > 0;
+                  } else if (task.isInput) {
+                    isComplete = (state.value || '').trim() !== '';
+                  } else {
+                    isComplete = !!state.checked;
+                  }
+                  return (
+                    <View key={task.id} style={styles.taskItem}>
+                      <TouchableOpacity
+                        style={[styles.taskCheckbox, isComplete && styles.taskCheckboxChecked]}
+                        onPress={() => !isDayComplete && handleToggle("coach", task.id)}
+                      >
+                        {isComplete && <Ionicons name="checkmark" size={16} color="#ffffff" />}
+                      </TouchableOpacity>
+                      <View style={styles.taskInfo}>
+                        <Text style={[styles.taskText, isComplete && styles.taskTextCompleted]}>{task.title || i18n.t(task.text)}</Text>
 
-                return (
-                  <View key={task.id} style={styles.taskItem}>
-                    <TouchableOpacity
-                      style={[styles.taskCheckbox, isComplete && styles.taskCheckboxChecked]}
-                      onPress={() => !isDayComplete && handleToggle("coach", task.id)}
-                    >
-                      {isComplete && <Ionicons name="checkmark" size={16} color="#ffffff" />}
-                    </TouchableOpacity>
-                    <View style={styles.taskInfo}>
-                      <Text style={[styles.taskText, isComplete && styles.taskTextCompleted]}>{i18n.t(task.text)}</Text>
+                        {task.isCounter && (
+                          <View style={styles.counterContainer}>
+                            <TouchableOpacity
+                              style={styles.counterButton}
+                              onPress={() => !isDayComplete && handleCounter("coach", task.id, -1)}
+                              disabled={isDayComplete}
+                            >
+                              <Ionicons name="remove" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
+                            </TouchableOpacity>
+                            <Text style={styles.counterText}>{state.count || 0}</Text>
+                            <TouchableOpacity
+                              style={styles.counterButton}
+                              onPress={() => !isDayComplete && handleCounter("coach", task.id, 1)}
+                              disabled={isDayComplete}
+                            >
+                              <Ionicons name="add" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
+                            </TouchableOpacity>
+                          </View>
+                        )}
 
-                      {task.isCounter && (
-                        <View style={styles.counterContainer}>
-                          <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => !isDayComplete && handleCounter("coach", task.id, -1)}
-                            disabled={isDayComplete}
-                          >
-                            <Ionicons name="remove" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
-                          </TouchableOpacity>
-                          <Text style={styles.counterText}>{state.count || 0}</Text>
-                          <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => !isDayComplete && handleCounter("coach", task.id, 1)}
-                            disabled={isDayComplete}
-                          >
-                            <Ionicons name="add" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
-                          </TouchableOpacity>
-                        </View>
-                      )}
+                        {task.isInput && (
+                          <TextInput
+                            style={[styles.input, isComplete && styles.inputCompleted]}
+                            value={state.value || ""}
+                            onChangeText={(text: string) => !isDayComplete && handleInput("coach", task.id, text)}
+                            placeholder={i18n.t('type_your_response')}
+                            editable={!isDayComplete}
+                            multiline
+                          />
+                        )}
+                      </View>
 
-                      {task.isInput && (
-                        <TextInput
-                          style={[styles.input, isComplete && styles.inputCompleted]}
-                          value={state.value || ""}
-                          onChangeText={(text: string) => !isDayComplete && handleInput("coach", task.id, text)}
-                          placeholder={i18n.t('type_your_response')}
-                          editable={!isDayComplete}
-                          multiline
-                        />
-                      )}
+                      <View style={styles.pointsContainer}>
+                        <Text style={[styles.pointsText, isComplete && styles.pointsTextCompleted]}>+{task.points}</Text>
+                      </View>
                     </View>
+                  )
+                })}
+              </View>
 
-                    <View style={styles.pointsContainer}>
-                      <Text style={[styles.pointsText, isComplete && styles.pointsTextCompleted]}>+{task.points}</Text>
-                    </View>
-                  </View>
-                )
-              })}
-            </View>
-
-            <View style={styles.questFooter}>
-              <TouchableOpacity
-                style={styles.clearButton}
-                onPress={() => !isDayComplete && handleClear("coach")}
-                disabled={isDayComplete}
-              >
-                <Ionicons name="refresh" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
-                <Text style={[styles.clearButtonText, isDayComplete && { color: "#9ca3af" }]}>{i18n.t('clear_all')}</Text>
-              </TouchableOpacity>
-
-              <LinearGradient 
-                colors={["#6d28d9", "#4f46e5"]}
-                style={[styles.submitButton, isDayComplete && { opacity: 0.6 }]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <TouchableOpacity
-                  onPress={() => alert(i18n.t('tasks_submitted'))}
+              <View style={styles.questFooter}>
+                {/* <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={() => !isDayComplete && handleClear("coach")}
                   disabled={isDayComplete}
-                  style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
                 >
-                  <Text style={styles.submitButtonText}>{isDayComplete ? i18n.t('completed') : i18n.t('submit')}</Text>
-                </TouchableOpacity>
-              </LinearGradient>
+                  <Ionicons name="refresh" size={16} color={isDayComplete ? "#9ca3af" : "#6b7280"} />
+                  <Text style={[styles.clearButtonText, isDayComplete && { color: "#9ca3af" }]}>{i18n.t('clear_all')}</Text>
+                </TouchableOpacity> */}
+
+                {/* Submit task button */}
+                <LinearGradient 
+                  colors={["#6d28d9", "#4f46e5"]}
+                  style={[styles.submitButton, (!allTasksComplete || isDayComplete) && { opacity: 0.6 }]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <TouchableOpacity
+                    onPress={handleSubmit}
+                    disabled={!allTasksComplete || isDayComplete}
+                    style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
+                  >
+                    <Text style={styles.submitButtonText}>{isDayComplete ? i18n.t('completed') : i18n.t('submit')}</Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
   )
 }
 

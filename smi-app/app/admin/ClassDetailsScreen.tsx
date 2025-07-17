@@ -267,53 +267,97 @@ export default function ClassDetailsScreen() {
   return (
     <ScrollView style={styles.scrollContainer} contentContainerStyle={{paddingBottom: 32}}>
       <View style={styles.container}>
-        <Text style={styles.title}>{className}</Text>
-        <Text style={styles.subtitle}>Class ID: {classId}</Text>
-        {/* Show coach info */}
-        <Text style={styles.subtitle}>
-          Assigned Coach: {coach ? (coach.name || coach.email) : 'None'}
-        </Text>
-
-        <View style={styles.statsCard}>
-          <Text style={styles.statsText}>Total Students: {classStudents.length}</Text>
-          <Text style={styles.statsText}>Total Tasks: {tasks.length}</Text>
+        {/* Header Section */}
+        <View style={styles.header}>
+          <Text style={styles.title}>{className}</Text>
+          <View style={styles.headerInfo}>
+            <Text style={styles.classId}>ID: {classId}</Text>
+            <View style={styles.coachInfo}>
+              <Text style={styles.coachLabel}>Coach:</Text>
+              <Text style={styles.coachName}>{coach ? (coach.name || coach.email) : 'Unassigned'}</Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.buttonRow}>
-          <Button title="Delete Class" color="red" onPress={handleDeleteClass} />
-          <View style={styles.buttonSpacer} />
-          <Button title={showStudentManager ? "Hide Student Manager" : "Manage Students"} onPress={() => setShowStudentManager(!showStudentManager)} />
-          <View style={styles.buttonSpacer} />
-          {/* <Button title={showTaskManager ? "Hide Task Manager" : "Manage Tasks"} onPress={() => setShowTaskManager(!showTaskManager)} /> */}
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{classStudents.length}</Text>
+            <Text style={styles.statLabel}>Students</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{tasks.length}</Text>
+            <Text style={styles.statLabel}>Tasks</Text>
+          </View>
         </View>
 
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={styles.primaryButton} 
+            onPress={() => setShowStudentManager(!showStudentManager)}
+          >
+            <Text style={styles.primaryButtonText}>
+              {showStudentManager ? "Hide" : "Manage"} Students
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.dangerButton} 
+            onPress={handleDeleteClass}
+          >
+            <Text style={styles.dangerButtonText}>Delete Class</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Task Manager Section */}
         {showTaskManager && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Tasks ({tasks.length})</Text>
-              <TouchableOpacity style={styles.createTaskButton} onPress={() => setShowCreateTaskModal(true)}>
-                <Text style={styles.createTaskButtonText}>+ New Task</Text>
+              <TouchableOpacity 
+                style={styles.addButton} 
+                onPress={() => setShowCreateTaskModal(true)}
+              >
+                <Text style={styles.addButtonText}>+ Add Task</Text>
               </TouchableOpacity>
             </View>
+            
             {taskLoading ? (
-              <ActivityIndicator />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#4A90E2" />
+                <Text style={styles.loadingText}>Loading tasks...</Text>
+              </View>
             ) : tasks.length === 0 ? (
-              <Text style={styles.noTasks}>No tasks assigned yet</Text>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No tasks created yet</Text>
+                <Text style={styles.emptyStateSubtext}>Create your first task to get started</Text>
+              </View>
             ) : (
-              <View style={styles.cardList}>
+              <View style={styles.taskList}>
                 {tasks.map(item => (
                   <View style={styles.taskCard} key={item.id}>
                     <View style={styles.taskHeader}>
                       <Text style={styles.taskTitle}>{item.title}</Text>
-                      <TouchableOpacity style={styles.deleteTaskButton} onPress={() => handleDeleteTask(item.id, item.title)}>
-                        <Text style={styles.deleteTaskButtonText}>×</Text>
+                      <TouchableOpacity 
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteTask(item.id, item.title)}
+                      >
+                        <Text style={styles.deleteButtonText}>×</Text>
                       </TouchableOpacity>
                     </View>
-                    {item.description && <Text style={styles.taskDescription}>{item.description}</Text>}
-                    <View style={styles.taskDetails}>
-                      <Text style={styles.taskDetail}>Due: {formatDate(item.dueDate)}</Text>
-                      <Text style={styles.taskDetail}>Assigned to: {getAssignedStudentsCount(item)} students</Text>
-                      <Text style={styles.taskDetail}>Status: {item.status || 'active'}</Text>
+                    {item.description && (
+                      <Text style={styles.taskDescription}>{item.description}</Text>
+                    )}
+                    <View style={styles.taskMeta}>
+                      <View style={styles.taskMetaItem}>
+                        <Text style={styles.taskMetaLabel}>Due:</Text>
+                        <Text style={styles.taskMetaValue}>{formatDate(item.dueDate)}</Text>
+                      </View>
+                      <View style={styles.taskMetaItem}>
+                        <Text style={styles.taskMetaLabel}>Assigned:</Text>
+                        <Text style={styles.taskMetaValue}>{getAssignedStudentsCount(item)} students</Text>
+                      </View>
                     </View>
                   </View>
                 ))}
@@ -322,11 +366,13 @@ export default function ClassDetailsScreen() {
           </View>
         )}
 
+        {/* Student Manager Section */}
         {showStudentManager && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Current Students ({classStudents.length})</Text>
+            
             {classStudents.length > 0 ? (
-              <View style={styles.cardList}>
+              <View style={styles.studentList}>
                 {classStudents.map(item => (
                   <TouchableOpacity
                     key={item.id}
@@ -338,20 +384,39 @@ export default function ClassDetailsScreen() {
                       studentName: item.name || item.email
                     })}
                   >
-                    <Text style={styles.studentName}>{item.name || item.email}</Text>
-                    <Button title="Remove" color="red" onPress={() => handleStudentToggle(item.id, true)} disabled={actionLoading === item.id} />
+                    <View style={styles.studentInfo}>
+                      <Text style={styles.studentName}>{item.name || item.email}</Text>
+                      <Text style={styles.studentStatus}>Active</Text>
+                    </View>
+                    <TouchableOpacity 
+                      style={styles.removeButton}
+                      onPress={() => handleStudentToggle(item.id, true)}
+                      disabled={actionLoading === item.id}
+                    >
+                      {actionLoading === item.id ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.removeButtonText}>Remove</Text>
+                      )}
+                    </TouchableOpacity>
                   </TouchableOpacity>
                 ))}
               </View>
             ) : (
-              <Text style={styles.noStudents}>No students in this class</Text>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No students enrolled</Text>
+                <Text style={styles.emptyStateSubtext}>Add students from the available list below</Text>
+              </View>
             )}
 
             <Text style={styles.sectionTitle}>Available Students</Text>
             {studentLoading ? (
-              <ActivityIndicator />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#4A90E2" />
+                <Text style={styles.loadingText}>Loading students...</Text>
+              </View>
             ) : (
-              <View style={styles.cardList}>
+              <View style={styles.studentList}>
                 {students.filter(student => !classData?.studentIds || !classData.studentIds.includes(student.id)).map(item => {
                   const currentClass = getStudentCurrentClass(item.id);
                   const isEnrolledElsewhere = currentClass !== null;
@@ -359,11 +424,23 @@ export default function ClassDetailsScreen() {
                     <View style={styles.studentCard} key={item.id}>
                       <View style={styles.studentInfo}>
                         <Text style={styles.studentName}>{item.name || item.email}</Text>
-                        {isEnrolledElsewhere && (
-                          <Text style={styles.enrolledText}>Currently in: {currentClass}</Text>
+                        {isEnrolledElsewhere ? (
+                          <Text style={styles.enrolledElsewhere}>Enrolled in: {currentClass}</Text>
+                        ) : (
+                          <Text style={styles.studentStatus}>Available</Text>
                         )}
                       </View>
-                      <Button title="Add" color="green" onPress={() => handleStudentToggle(item.id, false)} disabled={actionLoading === item.id || isEnrolledElsewhere} />
+                      <TouchableOpacity 
+                        style={[styles.addStudentButton, isEnrolledElsewhere && styles.disabledButton]}
+                        onPress={() => handleStudentToggle(item.id, false)}
+                        disabled={actionLoading === item.id || isEnrolledElsewhere}
+                      >
+                        {actionLoading === item.id ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Text style={styles.addStudentButtonText}>Add</Text>
+                        )}
+                      </TouchableOpacity>
                     </View>
                   );
                 })}
@@ -383,37 +460,101 @@ export default function ClassDetailsScreen() {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Create New Task</Text>
-                <TouchableOpacity onPress={() => setShowCreateTaskModal(false)} style={styles.closeButton}>
+                <TouchableOpacity 
+                  onPress={() => setShowCreateTaskModal(false)} 
+                  style={styles.closeButton}
+                >
                   <Text style={styles.closeButtonText}>×</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView style={styles.modalBody}>
-                <Text style={styles.inputLabel}>Task Title *</Text>
-                <TextInput style={styles.textInput} placeholder="Enter task title" value={newTaskTitle} onChangeText={setNewTaskTitle} autoFocus={true} />
-                <Text style={styles.inputLabel}>Description (Optional)</Text>
-                <TextInput style={[styles.textInput, styles.textArea]} placeholder="Enter task description" value={newTaskDescription} onChangeText={setNewTaskDescription} multiline={true} numberOfLines={3} />
-                <Text style={styles.inputLabel}>Due Date (Optional)</Text>
-                <TextInput style={styles.textInput} placeholder="YYYY-MM-DD" value={newTaskDueDate} onChangeText={setNewTaskDueDate} />
-                <Text style={styles.inputLabel}>Assign to Students</Text>
-                {classStudents.length > 0 ? (
-                  classStudents.map(student => (
-                    <TouchableOpacity key={student.id} style={[styles.studentSelectionItem, selectedStudents.includes(student.id) && styles.selectedStudent]} onPress={() => toggleStudentSelection(student.id)}>
-                      <Text style={[styles.studentSelectionText, selectedStudents.includes(student.id) && styles.selectedStudentText]}>{student.name || student.email}</Text>
-                      {selectedStudents.includes(student.id) && (<Text style={styles.checkmark}>✓</Text>)}
-                    </TouchableOpacity>
-                  ))
-                ) : (
-                  <Text style={styles.noStudentsText}>No students in class to assign</Text>
-                )}
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={() => setShowCreateTaskModal(false)}>
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.createModalButton, !newTaskTitle.trim() && styles.disabledButton]} onPress={handleCreateTask} disabled={!newTaskTitle.trim() || creatingTask}>
-                    {creatingTask ? (<ActivityIndicator size="small" color="#fff" />) : (<Text style={styles.createModalButtonText}>Create Task</Text>)}
-                  </TouchableOpacity>
+              
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Task Title *</Text>
+                  <TextInput 
+                    style={styles.textInput} 
+                    placeholder="Enter task title" 
+                    value={newTaskTitle} 
+                    onChangeText={setNewTaskTitle} 
+                    autoFocus={true}
+                    placeholderTextColor="#999"
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Description</Text>
+                  <TextInput 
+                    style={[styles.textInput, styles.textArea]} 
+                    placeholder="Enter task description" 
+                    value={newTaskDescription} 
+                    onChangeText={setNewTaskDescription} 
+                    multiline={true} 
+                    numberOfLines={3}
+                    placeholderTextColor="#999"
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Due Date</Text>
+                  <TextInput 
+                    style={styles.textInput} 
+                    placeholder="YYYY-MM-DD" 
+                    value={newTaskDueDate} 
+                    onChangeText={setNewTaskDueDate}
+                    placeholderTextColor="#999"
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Assign to Students</Text>
+                  {classStudents.length > 0 ? (
+                    <View style={styles.studentSelectionList}>
+                      {classStudents.map(student => (
+                        <TouchableOpacity 
+                          key={student.id} 
+                          style={[
+                            styles.studentSelectionItem, 
+                            selectedStudents.includes(student.id) && styles.selectedStudent
+                          ]} 
+                          onPress={() => toggleStudentSelection(student.id)}
+                        >
+                          <Text style={[
+                            styles.studentSelectionText, 
+                            selectedStudents.includes(student.id) && styles.selectedStudentText
+                          ]}>
+                            {student.name || student.email}
+                          </Text>
+                          {selectedStudents.includes(student.id) && (
+                            <Text style={styles.checkmark}>✓</Text>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={styles.noStudentsText}>No students in class to assign</Text>
+                  )}
                 </View>
               </ScrollView>
+              
+              <View style={styles.modalFooter}>
+                <TouchableOpacity 
+                  style={styles.cancelButton} 
+                  onPress={() => setShowCreateTaskModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.createButton, !newTaskTitle.trim() && styles.disabledButton]} 
+                  onPress={handleCreateTask} 
+                  disabled={!newTaskTitle.trim() || creatingTask}
+                >
+                  {creatingTask ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.createButtonText}>Create Task</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -423,156 +564,295 @@ export default function ClassDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5',
   },
   loader: {
-    marginTop: 40,
+    marginTop: 50,
+  },
+  
+  // Header Styles
+  header: {
+    marginBottom: 24,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#2c3e50',
     marginBottom: 8,
-    color: '#333',
   },
-  subtitle: {
+  headerInfo: {
+    gap: 4,
+  },
+  classId: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 20,
+    color: '#7f8c8d',
+    fontFamily: 'monospace',
   },
+  coachInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  coachLabel: {
+    fontSize: 14,
+    color: '#7f8c8d',
+  },
+  coachName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#34495e',
+  },
+  
+  // Stats Styles
   statsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  statsText: {
+  statNumber: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#4A90E2',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    fontWeight: '500',
+  },
+  
+  // Action Buttons
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  primaryButton: {
+    flex: 1,
+    backgroundColor: '#4A90E2',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
   },
-  buttonContainer: {
+  dangerButton: {
+    backgroundColor: '#E74C3C',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  dangerButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  
+  // Section Styles
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
     flexDirection: 'row',
-    marginBottom: 20,
-  },
-  buttonSpacer: {
-    width: 10,
-  },
-  studentManager: {
-    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 10,
-    marginTop: 20,
-    color: '#333',
+    color: '#2c3e50',
   },
-  studentItem: {
+  addButton: {
+    backgroundColor: '#27AE60',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  // Loading and Empty States
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    gap: 10,
+  },
+  loadingText: {
+    color: '#7f8c8d',
+    fontSize: 14,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    marginBottom: 4,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#95a5a6',
+  },
+  
+  // Task Styles
+  taskList: {
+    gap: 12,
+  },
+  taskCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4A90E2',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  taskHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  taskTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    flex: 1,
+  },
+  deleteButton: {
+    padding: 4,
+    borderRadius: 4,
+  },
+  deleteButtonText: {
+    fontSize: 20,
+    color: '#E74C3C',
+    fontWeight: 'bold',
+  },
+  taskDescription: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  taskMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  taskMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  taskMetaLabel: {
+    fontSize: 12,
+    color: '#95a5a6',
+    fontWeight: '500',
+  },
+  taskMetaValue: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+  
+  // Student Styles
+  studentList: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  studentCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    padding: 15,
-    marginVertical: 4,
-    borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   studentInfo: {
     flex: 1,
   },
   studentName: {
     fontSize: 16,
-    color: '#333',
-    marginBottom: 2,
+    fontWeight: '500',
+    color: '#2c3e50',
+    marginBottom: 4,
   },
-  enrolledText: {
+  studentStatus: {
     fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
+    color: '#27AE60',
+    fontWeight: '500',
   },
-  noStudents: {
-    textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
-    marginVertical: 20,
+  enrolledElsewhere: {
+    fontSize: 12,
+    color: '#F39C12',
+    fontWeight: '500',
   },
-  taskManager: {
-    flex: 1,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 10,
-  },
-  createTaskButton: {
-    backgroundColor: '#007bff',
-    padding: 10,
+  removeButton: {
+    backgroundColor: '#E74C3C',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 8,
   },
-  createTaskButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  removeButtonText: {
     color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
-  taskCard: {
-    backgroundColor: '#fff',
-    padding: 10,
-    marginVertical: 4,
+  addStudentButton: {
+    backgroundColor: '#27AE60',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  taskHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  addStudentButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+  disabledButton: {
+    backgroundColor: '#bdc3c7',
   },
-  deleteTaskButton: {
-    padding: 5,
-  },
-  deleteTaskButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'red',
-  },
-  taskDescription: {
-    marginTop: 5,
-    color: '#666',
-  },
-  taskDetails: {
-    marginTop: 5,
-  },
-  taskDetail: {
-    fontSize: 12,
-    color: '#666',
-  },
-  noTasks: {
-    textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
-    marginVertical: 20,
-  },
+  
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -581,140 +861,133 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    width: '80%',
+    borderRadius: 16,
+    width: '90%',
     maxHeight: '80%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2c3e50',
   },
   closeButton: {
-    padding: 5,
+    padding: 8,
   },
   closeButtonText: {
-    fontSize: 16,
+    fontSize: 24,
+    color: '#7f8c8d',
     fontWeight: 'bold',
-    color: 'red',
   },
   modalBody: {
+    padding: 20,
+    flex: 1,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#ecf0f1',
+  },
+  
+  // Input Styles
+  inputGroup: {
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#fff',
-    padding: 10,
+    backgroundColor: '#f8f9fa',
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    marginBottom: 10,
+    borderColor: '#e9ecef',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    color: '#2c3e50',
   },
   textArea: {
-    height: 100,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  
+  // Student Selection Styles
+  studentSelectionList: {
+    gap: 8,
+    maxHeight: 200,
   },
   studentSelectionItem: {
-    padding: 10,
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    marginBottom: 5,
+    borderColor: '#e9ecef',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   selectedStudent: {
-    backgroundColor: '#007bff',
-    borderColor: '#007bff',
+    backgroundColor: '#e3f2fd',
+    borderColor: '#4A90E2',
   },
   studentSelectionText: {
-    color: '#333',
+    fontSize: 14,
+    color: '#2c3e50',
   },
   selectedStudentText: {
-    fontWeight: 'bold',
-    color: '#fff',
+    color: '#4A90E2',
+    fontWeight: '500',
   },
   checkmark: {
-    color: '#007bff',
-    fontWeight: 'bold',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  cancelButton: {
-    backgroundColor: '#ccc',
-    padding: 10,
-    borderRadius: 5,
-  },
-  cancelButtonText: {
+    color: '#4A90E2',
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
-  },
-  createModalButton: {
-    backgroundColor: '#007bff',
-    padding: 10,
-    borderRadius: 5,
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  createModalButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
   },
   noStudentsText: {
-    textAlign: 'center',
-    color: '#666',
+    fontSize: 14,
+    color: '#7f8c8d',
     fontStyle: 'italic',
-    marginVertical: 20,
+    textAlign: 'center',
+    padding: 20,
   },
-  scrollContainer: {
+  
+  // Modal Footer Button Styles
+  cancelButton: {
     flex: 1,
-  },
-  statsCard: {
-    backgroundColor: '#fff',
-    padding: 15,
+    backgroundColor: '#ecf0f1',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 8,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  section: {
-    flex: 1,
-  },
-  cardList: {
-    flex: 1,
-  },
-  studentCard: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    padding: 15,
-    marginVertical: 4,
+  },
+  cancelButtonText: {
+    color: '#7f8c8d',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  createButton: {
+    flex: 1,
+    backgroundColor: '#4A90E2',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    alignItems: 'center',
+  },
+  createButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

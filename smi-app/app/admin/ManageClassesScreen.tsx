@@ -141,14 +141,21 @@ export default function ManageClassesScreen() {
             className: item.name 
           });
         }}
+        activeOpacity={0.8}
       >
         <View style={styles.classHeader}>
-          <Text style={styles.className}>{item.name}</Text>
+          <View style={styles.classTitleContainer}>
+            <Text style={styles.className}>{item.name}</Text>
+            <View style={styles.studentBadge}>
+              <Text style={styles.studentBadgeText}>{studentCount} students</Text>
+            </View>
+          </View>
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => handleDeleteClass(item.id, item.name)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Text style={styles.deleteButtonText}>×</Text>
+            <Text style={styles.deleteButtonText}>✕</Text>
           </TouchableOpacity>
         </View>
         
@@ -156,19 +163,11 @@ export default function ManageClassesScreen() {
           <Text style={styles.classDescription}>{item.description}</Text>
         )}
         
-        <View style={styles.classStats}>
-                     <View style={styles.statItem}>
-             <Text style={styles.statLabel}>Students</Text>
-             <Text style={styles.statNumber}>{studentCount}</Text>
-           </View>
-           {/* <View style={styles.statItem}>
-             <Text style={styles.statLabel}>Created</Text>
-             <Text style={styles.statNumber}>{createdDate}</Text>
-           </View> */}
-        </View>
-        
         <View style={styles.cardFooter}>
-          <Text style={styles.viewDetailsText}>Tap to view details →</Text>
+          <View style={styles.viewDetailsContainer}>
+            <Text style={styles.viewDetailsText}>View Details</Text>
+            <Text style={styles.viewDetailsArrow}>→</Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -178,22 +177,32 @@ export default function ManageClassesScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Manage Classes</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>Manage Classes</Text>
+          <Text style={styles.subtitle}>Create and organize your classes</Text>
+        </View>
         <TouchableOpacity 
           style={styles.createButton}
           onPress={() => setShowCreateModal(true)}
+          activeOpacity={0.8}
         >
-          <Text style={styles.createButtonText}>+ New Class</Text>
+          <Text style={styles.createButtonText}>＋ New Class</Text>
         </TouchableOpacity>
       </View>
 
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
+          <View style={styles.statIconContainer}>
+            <Text style={styles.statIcon}>📚</Text>
+          </View>
           <Text style={styles.statNumber}>{Array.isArray(classes) ? classes.length : 0}</Text>
           <Text style={styles.statLabel}>Total Classes</Text>
         </View>
         <View style={styles.statCard}>
+          <View style={styles.statIconContainer}>
+            <Text style={styles.statIcon}>👥</Text>
+          </View>
           <Text style={styles.statNumber}>
             {(Array.isArray(classes) ? classes : []).reduce((total, cls) => total + (cls.studentIds ? cls.studentIds.length : 0), 0)}
           </Text>
@@ -204,7 +213,7 @@ export default function ManageClassesScreen() {
       {/* Classes List */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color="#4A90E2" />
           <Text style={styles.loadingText}>Loading classes...</Text>
         </View>
       ) : (
@@ -229,62 +238,90 @@ export default function ManageClassesScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create New Class</Text>
+              <View>
+                <Text style={styles.modalTitle}>Create New Class</Text>
+                <Text style={styles.modalSubtitle}>Set up a new class for your students</Text>
+              </View>
               <TouchableOpacity 
                 onPress={() => setShowCreateModal(false)}
                 style={styles.closeButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.closeButtonText}>×</Text>
+                <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Class Name *</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter class name"
-                value={newClassName}
-                onChangeText={setNewClassName}
-                autoFocus={true}
-              />
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Class Name *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g., Mathematics Grade 10"
+                  placeholderTextColor="#999"
+                  value={newClassName}
+                  onChangeText={setNewClassName}
+                  autoFocus={true}
+                />
+              </View>
 
-              <Text style={styles.inputLabel}>Description (Optional)</Text>
-              <TextInput
-                style={[styles.textInput, styles.textArea]}
-                placeholder="Enter class description"
-                value={newClassDescription}
-                onChangeText={setNewClassDescription}
-                multiline={true}
-                numberOfLines={3}
-              />
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Description</Text>
+                <TextInput
+                  style={[styles.textInput, styles.textArea]}
+                  placeholder="Brief description of the class..."
+                  placeholderTextColor="#999"
+                  value={newClassDescription}
+                  onChangeText={setNewClassDescription}
+                  multiline={true}
+                  numberOfLines={3}
+                />
+              </View>
 
-              {/* Coach Dropdown */}
-              <Text style={{marginTop: 10, marginBottom: 4}}>Assign Coach:</Text>
-              <View style={styles.dropdownContainer}>
-                <ScrollView style={{maxHeight: 100}}>
-                  {users.filter(u => COACH_EMAILS.includes(u.email)).map(coach => (
-                    <TouchableOpacity
-                      key={coach.id}
-                      style={selectedCoachId === coach.id ? styles.selectedDropdownItem : styles.dropdownItem}
-                      onPress={() => setSelectedCoachId(coach.id)}
-                    >
-                      <Text>{coach.email}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Assign Coach *</Text>
+                <View style={styles.dropdownContainer}>
+                  <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator={false}>
+                    {users.filter(u => COACH_EMAILS.includes(u.email)).map(coach => (
+                      <TouchableOpacity
+                        key={coach.id}
+                        style={[
+                          styles.dropdownItem,
+                          selectedCoachId === coach.id && styles.selectedDropdownItem
+                        ]}
+                        onPress={() => setSelectedCoachId(coach.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[
+                          styles.dropdownItemText,
+                          selectedCoachId === coach.id && styles.selectedDropdownItemText
+                        ]}>
+                          {coach.email}
+                        </Text>
+                        {selectedCoachId === coach.id && (
+                          <Text style={styles.checkmark}>✓</Text>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
 
               <View style={styles.modalButtons}>
                 <TouchableOpacity 
                   style={styles.cancelButton}
                   onPress={() => setShowCreateModal(false)}
+                  activeOpacity={0.8}
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={[styles.createModalButton, !newClassName.trim() && styles.disabledButton]}
+                  style={[
+                    styles.createModalButton,
+                    (!newClassName.trim() || !selectedCoachId) && styles.disabledButton
+                  ]}
                   onPress={handleCreateClass}
-                  disabled={!newClassName.trim() || creating}
+                  disabled={!newClassName.trim() || !selectedCoachId || creating}
+                  activeOpacity={0.8}
                 >
                   {creating ? (
                     <ActivityIndicator size="small" color="#fff" />
@@ -304,266 +341,331 @@ export default function ManageClassesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 24,
     paddingTop: 60,
-    backgroundColor: '#fff',
+    paddingBottom: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  headerContent: {
+    marginBottom: 16,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1A202C',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#64748B',
   },
   createButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignSelf: 'flex-start',
+    shadowColor: '#4A90E2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   createButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 16,
   },
   statsContainer: {
     flexDirection: 'row',
-    padding: 20,
-    gap: 15,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 16,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: 20,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  statIconContainer: {
+    marginBottom: 8,
+  },
+  statIcon: {
+    fontSize: 24,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: '#4A90E2',
+    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 60,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
-    color: '#666',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  emptyButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
+    color: '#64748B',
   },
   listContainer: {
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
   },
   classCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 20,
-    marginBottom: 15,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   classHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  classTitleContainer: {
+    flex: 1,
+    marginRight: 12,
   },
   className: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
-    flex: 1,
+    color: '#1A202C',
+    marginBottom: 6,
+  },
+  studentBadge: {
+    backgroundColor: '#EBF8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  studentBadgeText: {
+    fontSize: 12,
+    color: '#2B6CB0',
+    fontWeight: '500',
   },
   deleteButton: {
-    backgroundColor: '#ff3b30',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    backgroundColor: '#FEF2F2',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
   deleteButtonText: {
-    color: '#fff',
-    fontSize: 18,
+    color: '#DC2626',
+    fontSize: 16,
     fontWeight: 'bold',
   },
   classDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
-    lineHeight: 20,
-  },
-  classStats: {
-    flexDirection: 'row',
-    marginBottom: 15,
-  },
-  statItem: {
-    marginRight: 30,
+    fontSize: 15,
+    color: '#64748B',
+    marginBottom: 16,
+    lineHeight: 22,
   },
   cardFooter: {
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 15,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 16,
+  },
+  viewDetailsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   viewDetailsText: {
-    fontSize: 14,
-    color: '#007AFF',
-    textAlign: 'center',
+    fontSize: 15,
+    color: '#4A90E2',
+    fontWeight: '500',
+    marginRight: 6,
+  },
+  viewDetailsArrow: {
+    fontSize: 16,
+    color: '#4A90E2',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     width: '90%',
-    maxHeight: '80%',
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
+    alignItems: 'flex-start',
+    padding: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#F1F5F9',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1A202C',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
   },
   closeButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#f0f0f0',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   closeButtonText: {
-    fontSize: 20,
-    color: '#666',
+    fontSize: 18,
+    color: '#64748B',
+    fontWeight: 'bold',
   },
   modalBody: {
-    padding: 20,
+    padding: 24,
+  },
+  inputGroup: {
+    marginBottom: 20,
   },
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#374151',
     marginBottom: 8,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
-    marginBottom: 20,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#FFFFFF',
+    color: '#1A202C',
   },
   textArea: {
-    height: 80,
+    height: 100,
     textAlignVertical: 'top',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 15,
-    marginTop: 10,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  createModalButton: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  createModalButtonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
   },
   dropdownContainer: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#f9f9f9',
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    maxHeight: 120,
+  },
+  dropdownScroll: {
+    maxHeight: 120,
   },
   dropdownItem: {
-    padding: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   selectedDropdownItem: {
-    backgroundColor: '#007AFF',
-    borderRadius: 4,
-    padding: 8,
+    backgroundColor: '#EBF8FF',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: '#374151',
+  },
+  selectedDropdownItemText: {
+    color: '#2B6CB0',
+    fontWeight: '500',
+  },
+  checkmark: {
+    fontSize: 16,
+    color: '#2B6CB0',
+    fontWeight: 'bold',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  createModalButton: {
+    flex: 1,
+    backgroundColor: '#4A90E2',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#4A90E2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  createModalButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  disabledButton: {
+    backgroundColor: '#CBD5E0',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });
